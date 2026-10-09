@@ -129,7 +129,8 @@ async function startApp() {
   });
 
   await refreshDevices();
-  poll();
+  await poll();
+  maybeShowIdle();  // start of the session: invite people to add songs
   setInterval(poll, POLL_MS);
   requestAnimationFrame(frame);
 }
@@ -393,7 +394,7 @@ async function onSongEnded() {
   hold();
   updatePlayButton();
   if (queue.next) showIntermission();
-  else setStatus('That\'s a wrap! 🎉 Search for more songs to keep the party going.');
+  else if (!maybeShowIdle()) setStatus('That\'s a wrap! 🎉 Search for more songs to keep the party going.');
 }
 
 async function nextSinger() {
@@ -416,6 +417,7 @@ function showIntermission() {
   Object.assign(state.im, { remaining: INTERMISSION_S, held: false });
   fillIntermission(entry);
   $('imHold').textContent = 'Hold';
+  hideIdle();
   setStatus('');
   $('intermission').hidden = false;
   $('lyricsViewport').style.visibility = 'hidden';
@@ -481,6 +483,12 @@ function renderQueue() {
   if (next) $('upNext').textContent = `Up next: ${next.singer} · ${next.track.name}`;
   renderQueueList({ onStart: startEntry });
 
+  // Someone added a song while the QR screen was up (e.g. from their phone): on with the show.
+  if (!$('idleScreen').hidden && next) {
+    hideIdle();
+    showIntermission();
+  }
+
   // Keep the intermission screen in sync if the queue changed under it.
   if (!$('intermission').hidden) {
     if (!next) hideIntermission();
@@ -501,7 +509,7 @@ function intermissionSkip() {
   if (queue.next) showIntermission();
   else {
     hideIntermission();
-    setStatus('The queue is empty — search for a song to add one.');
+    if (!maybeShowIdle()) setStatus('The queue is empty — search for a song to add one.');
   }
 }
 
@@ -578,6 +586,8 @@ async function setParty(action) {
   }
   guestsDialog.render();
   renderIntermissionQr();
+  if (party.isOn()) maybeShowIdle();
+  else hideIdle();
 }
 
 function renderIntermissionQr() {
@@ -585,6 +595,29 @@ function renderIntermissionQr() {
   const qr = s.on ? qrDataUrl(s.url, 6) : null;
   $('imQr').hidden = !qr;
   if (qr) $('imQr').querySelector('img').src = qr;
+}
+
+/* ---------- "scan to add a song" screen ---------- */
+
+/**
+ * Shows the big QR code when nothing is playing, nothing is counting down and the queue is empty
+ * (start of the session, or the last song just ended). Needs guest requests on. Returns true if shown.
+ */
+function maybeShowIdle() {
+  const s = party.state();
+  const qr = s.on ? qrDataUrl(s.url, 10) : null;
+  if (!qr || state.pb?.isPlaying || !$('intermission').hidden || queue.next) return false;
+  $('idleQr').src = qr;
+  setStatus('');
+  $('idleScreen').hidden = false;
+  $('lyricsViewport').style.visibility = 'hidden';
+  return true;
+}
+
+function hideIdle() {
+  if ($('idleScreen').hidden) return;
+  $('idleScreen').hidden = true;
+  if ($('intermission').hidden) $('lyricsViewport').style.visibility = '';
 }
 
 /* ---------- detached queue window ---------- */
@@ -798,6 +831,7 @@ function updatePlayButton() {
   const playing = !!state.pb?.isPlaying;
   $('playPause').textContent = playing ? '❚❚' : '▶';
   $('playPause').setAttribute('aria-label', playing ? 'Pause' : 'Play');
+  if (playing) hideIdle();
   broadcastStatus();
 }
 
@@ -853,6 +887,7 @@ function bindAppEvents() {
   $('imStart').onclick = intermissionStart;
   $('imSkip').onclick = intermissionSkip;
   $('imHold').onclick = intermissionHold;
+  $('idleHide').onclick = hideIdle;
   $('imSpeak').onclick = toggleSpeech;
   $('imRate').onchange = (e) => setSpeechRate(e.target.value);
 

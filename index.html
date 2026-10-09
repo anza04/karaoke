@@ -113,6 +113,15 @@
           <button id="imSkip" class="ghost">Skip this song</button>
         </div>
       </div>
+
+      <!-- Nothing playing and nobody queued: invite people to add songs from their phones -->
+      <div id="idleScreen" hidden>
+        <div class="im-label">Who's singing?</div>
+        <img id="idleQr" alt="QR code to add a song from your phone">
+        <div class="idle-title">Scan to add your song 🎤</div>
+        <div class="idle-sub">Point your phone camera at the code. No app or Spotify needed.</div>
+        <button id="idleHide" class="ghost small">Hide</button>
+      </div>
     </section>
 
     <footer class="controls">
