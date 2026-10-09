@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Singer queue · Karaoke</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>👥</text></svg>">
+  <link rel="stylesheet" href="css/style.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
+  <script type="module" src="js/queue-window.js"></script>
+</head>
+<body class="queue-window">
+  <div id="bg"></div>
+
+  <main id="qw">
+    <header class="qw-head">
+      <h1>👥 Singer queue</h1>
+      <span id="qwCount" class="badge">0</span>
+      <button id="guestsBtn" class="pill qw-guests" title="Guests add songs from their phones">📱 Guests</button>
+    </header>
+
+    <!-- Shown when the main karaoke window isn't open -->
+    <div id="qwOffline" class="qw-banner" hidden>
+      The main karaoke window isn't open, so songs can be queued but won't play.
+      <a href="./" target="karaoke-main">Open it</a>
+    </div>
+
+    <!-- What the main window is doing -->
+    <section id="qwNow" class="qw-card" hidden>
+      <div class="qw-label" id="qwNowLabel"></div>
+      <div class="qw-big" id="qwNowSinger"></div>
+      <div class="r-sub" id="qwNowSong"></div>
+      <blockquote id="qwNowMessage" class="q-msg" hidden></blockquote>
+      <div class="qw-actions" id="qwImActions" hidden>
+        <button id="qwImStart" class="primary small">Start now</button>
+        <button id="qwImHold" class="ghost small">Hold</button>
+        <button id="qwImSkip" class="ghost small">Skip</button>
+      </div>
+      <div class="qw-actions" id="qwSingActions" hidden>
+        <button id="qwNext" class="ghost small">⏭ Next singer</button>
+      </div>
+    </section>
+
+    <div class="search">
+      <input id="searchInput" type="search" placeholder="Add a song: search title or artist…" autocomplete="off" spellcheck="false">
+      <ul id="results" hidden></ul>
+    </div>
+
+    <ol id="queueList"></ol>
+    <p id="queueEmpty" class="qp-empty">The queue is empty.<br>Search for a song above and pick who's singing it.</p>
+
+    <footer class="qp-foot">
+      <label class="check"><input id="fairToggle" type="checkbox"> Take turns fairly</label>
+      <button id="queueClear" class="ghost small">Clear queue</button>
+    </footer>
+  </main>
+
+  <!-- Who's singing? (same ids as the main window, see ui.js) -->
+  <dialog id="singerDialog">
+    <form id="singerForm">
+      <h2>Who's singing?</h2>
+      <div class="sd-song">
+        <img id="sdCover" alt="">
+        <div>
+          <div id="sdTitle" class="r-title"></div>
+          <div id="sdArtist" class="r-sub"></div>
+        </div>
+      </div>
+      <input id="singerInput" placeholder="Singer name" autocomplete="off" spellcheck="false" maxlength="40">
+      <div id="singerChips" class="chips"></div>
+      <input id="messageInput" class="message-input" placeholder="Message or dedication (optional)" autocomplete="off" maxlength="160">
+      <p class="hint">Shown and read aloud while everyone waits for this song.</p>
+      <div class="sd-actions">
+        <button id="sdCancel" type="button" class="ghost">Cancel</button>
+        <button id="sdNow" type="button" value="now" class="ghost">Sing now</button>
+        <button id="sdQueue" type="submit" value="queue" class="primary">Add to queue</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div id="toast" role="status" hidden></div>
+</body>
+</html>

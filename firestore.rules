@@ -1,0 +1,68 @@
+rules_version = '2';
+
+// Karaoke guest requests. Paste into Firebase console → Firestore Database → Rules → Publish.
+//
+// Everyone signs in anonymously. The karaoke window that created a party is its owner.
+// Guests who know the party id (from the QR code) can see the party, start searches and send songs.
+// Only the owner can read requests, answer searches and change the party.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    match /parties/{partyId} {
+      function party() {
+        return get(/databases/$(database)/documents/parties/$(partyId)).data;
+      }
+      function signedIn() {
+        return request.auth != null;
+      }
+      function isOwner() {
+        return signedIn() && party().ownerUid == request.auth.uid;
+      }
+      function isOpen() {
+        return party().open == true;
+      }
+
+      // Guests open a party by its id; nobody can list parties.
+      allow get: if signedIn();
+      allow list: if false;
+      allow create: if signedIn() && request.resource.data.ownerUid == request.auth.uid;
+      allow update: if signedIn()
+        && resource.data.ownerUid == request.auth.uid
+        && request.resource.data.ownerUid == resource.data.ownerUid;
+      allow delete: if signedIn() && resource.data.ownerUid == request.auth.uid;
+
+      // A guest's song for the queue. The host adds it, then deletes the request.
+      match /requests/{requestId} {
+        allow create: if signedIn() && isOpen()
+          && request.resource.data.keys().hasOnly(['singer', 'message', 'uri', 'by', 'createdAt'])
+          && request.resource.data.by == request.auth.uid
+          && request.resource.data.createdAt == request.time
+          && request.resource.data.singer is string
+          && request.resource.data.singer.size() > 0
+          && request.resource.data.singer.size() <= 40
+          && request.resource.data.message is string
+          && request.resource.data.message.size() <= 160
+          && request.resource.data.uri is string
+          && request.resource.data.uri.matches('spotify:track:[A-Za-z0-9]{1,40}');
+        allow read, delete: if isOwner();
+      }
+
+      // A guest's search. The host runs it with its own Spotify login and writes the results back.
+      match /searches/{searchId} {
+        allow create: if signedIn() && isOpen()
+          && request.resource.data.keys().hasOnly(['q', 'by', 'done', 'createdAt'])
+          && request.resource.data.by == request.auth.uid
+          && request.resource.data.createdAt == request.time
+          && request.resource.data.done == false
+          && request.resource.data.q is string
+          && request.resource.data.q.size() > 0
+          && request.resource.data.q.size() <= 100;
+        allow get: if signedIn() && (resource.data.by == request.auth.uid || isOwner());
+        allow list: if isOwner();
+        allow update: if isOwner()
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['results', 'done', 'error']);
+        allow delete: if signedIn() && (resource.data.by == request.auth.uid || isOwner());
+      }
+    }
+  }
+}

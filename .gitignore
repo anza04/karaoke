@@ -1,0 +1,4 @@
+# Local tooling, not part of the app
+.claude/
+__pycache__/
+*.bak

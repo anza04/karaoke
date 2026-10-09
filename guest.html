@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0b0b10">
+  <title>Add a song · Karaoke</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎤</text></svg>">
+  <link rel="stylesheet" href="css/style.css">
+  <script type="module" src="js/guest.js"></script>
+</head>
+<body class="guest-page">
+  <div id="bg"></div>
+
+  <main id="guest">
+    <header class="qw-head">
+      <h1>🎤 Add a song</h1>
+    </header>
+
+    <div id="gBanner" class="qw-banner" hidden></div>
+
+    <section id="gNow" class="qw-card" hidden>
+      <div class="qw-label">Now singing</div>
+      <div class="qw-big" id="gNowSinger"></div>
+      <div class="r-sub" id="gNowSong"></div>
+    </section>
+
+    <section id="gForm" class="g-form">
+      <label for="gName" class="g-label">Your name</label>
+      <input id="gName" placeholder="Who's singing?" autocomplete="nickname" maxlength="40">
+      <label for="gSearch" class="g-label">Song</label>
+      <input id="gSearch" type="search" placeholder="Search a song or artist…" autocomplete="off" spellcheck="false" enterkeyhint="search">
+      <p id="gStatus" class="hint" hidden></p>
+      <ul id="gResults" class="g-list g-results"></ul>
+    </section>
+
+    <section id="gMineBox" hidden>
+      <h2 class="g-h2">Your songs</h2>
+      <ol id="gMine" class="g-list"></ol>
+    </section>
+
+    <section>
+      <h2 class="g-h2">Up next</h2>
+      <ol id="gQueue" class="g-list"></ol>
+      <p id="gQueueEmpty" class="hint">Nobody is queued yet. Be the first!</p>
+    </section>
+  </main>
+
+  <dialog id="gDialog">
+    <form id="gDialogForm">
+      <h2>Add this song?</h2>
+      <div class="sd-song">
+        <img id="gdCover" alt="">
+        <div>
+          <div id="gdTitle" class="r-title"></div>
+          <div id="gdArtist" class="r-sub"></div>
+        </div>
+      </div>
+      <p class="hint">Singing as <b id="gdName"></b></p>
+      <input id="gdMessage" class="message-input" placeholder="Message or dedication (optional)" autocomplete="off" maxlength="160">
+      <p class="hint">Shown and read aloud before your song.</p>
+      <div class="sd-actions">
+        <button id="gdCancel" type="button" class="ghost">Cancel</button>
+        <button id="gdAdd" type="submit" class="primary">Add to queue</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div id="toast" role="status" hidden></div>
+</body>
+</html>
