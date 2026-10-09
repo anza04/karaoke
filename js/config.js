@@ -1,15 +1,12 @@
 export const CONFIG = {
-  // Optional: hard-code your Spotify app's Client ID here instead of entering it in the setup screen.
-  // It isn't a secret, so it's fine to publish.
-  clientId: '',
-
-  // Guest requests from phones (see README → "Guests add songs from their phones").
-  // Paste the web-app config from Firebase: Project settings → Your apps → </> Web app → firebaseConfig.
-  // These values identify your project; they aren't secret. Access is controlled by firestore.rules.
-  firebase: null,
-  // e.g. firebase: { apiKey: '…', authDomain: '…', projectId: '…', storageBucket: '…', messagingSenderId: '…', appId: '…' },
-
-  // Where the app is published, e.g. 'https://your-name.github.io/karaoke/'.
-  // The QR code points phones here. Not needed when you already open the app from that address.
-  publicUrl: '',
+  clientId: '4f6e066d333b4816b62c6d12ac87fa8d',          // optional: then nobody has to paste it
+  firebase: {
+    apiKey: 'AIzaSyD0OeEQYKFBC34X8JGNIKdlBUzIwexA3AU',
+    authDomain: 'karaoke-a9b78.firebaseapp.com',
+    projectId: 'karaoke-a9b78',
+    storageBucket: 'karaoke-a9b78.firebasestorage.app',
+    messagingSenderId: '878783872808',
+    appId: '1:878783872808:web:5fe50c05e5c0cdda6d9a1d',
+  },
+  publicUrl: 'https://anza04.github.io/karaoke/',
 };
