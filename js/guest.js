@@ -108,8 +108,10 @@ async function runSearch(q) {
   status('Searching…');
   let unwatch = null;
   let path = null;
+  let finished = false;
   const giveUp = setTimeout(() => {
     if (seq !== searchSeq) return;
+    finished = true;
     unwatch?.();
     status('The karaoke screen isn\'t answering. Is it still open?');
   }, SEARCH_TIMEOUT_MS);
@@ -118,14 +120,19 @@ async function runSearch(q) {
     const id = await db.add(`parties/${partyId}/searches`, { q, by: db.uid, done: false, createdAt: db.serverTime() });
     path = `parties/${partyId}/searches/${id}`;
     unwatch = db.watchDoc(path, (s) => {
-      if (!s?.done) return;
+      if (finished || !s?.done) return;
+      finished = true;
       clearTimeout(giveUp);
-      queueMicrotask(() => unwatch?.());
+      // Stop listening *before* deleting: Firestore re-checks the rules for a listener whose
+      // document disappears, and our "only your own searches" rule then reports permission-denied.
+      unwatch?.();
       db.remove(path).catch(() => {});
       if (seq !== searchSeq) return;
       status(s.error || (s.results?.length ? '' : 'No songs found.'));
       renderResults(s.results ?? []);
     }, (e) => {
+      if (finished) return;  // late errors after we already have the answer don't matter
+      finished = true;
       clearTimeout(giveUp);
       if (seq === searchSeq) status(explain(e));
     });
