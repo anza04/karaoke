@@ -212,10 +212,19 @@ $('gdCancel').onclick = () => { pending = null; $('gDialog').close(); };
   if (!partyId) return banner('This link is missing its party code. Scan the QR code on the karaoke screen again.');
   if (!isConfigured()) return banner('Song requests aren\'t set up on this karaoke yet.');
   $('gSearch').disabled = true;
+  // Say what's happening, so a slow or blocked connection doesn't look like a broken page.
+  banner('Connecting to the karaoke…');
+  const slow = setTimeout(() => {
+    banner('Still connecting… Check that your phone has internet, or open this link in another browser (e.g. Chrome or Safari).');
+  }, 12_000);
   try {
     db = await connect();
   } catch (e) {
+    clearTimeout(slow);
     return banner(explain(e));
   }
-  db.watchDoc(`parties/${partyId}`, (p) => { party = p; render(); }, (e) => banner(explain(e)));
+  db.watchDoc(`parties/${partyId}`, (p) => { clearTimeout(slow); party = p; render(); }, (e) => {
+    clearTimeout(slow);
+    banner(explain(e));
+  });
 })();
