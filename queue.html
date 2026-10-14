@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="en">
+<html lang="it">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Singer queue · Karaoke</title>
+  <title>Coda dei cantanti · Karaoke</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>👥</text></svg>">
   <link rel="stylesheet" href="css/style.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
@@ -14,15 +14,15 @@
 
   <main id="qw">
     <header class="qw-head">
-      <h1>👥 Singer queue</h1>
+      <h1>👥 Coda dei cantanti</h1>
       <span id="qwCount" class="badge">0</span>
-      <button id="guestsBtn" class="pill qw-guests" title="Guests add songs from their phones">📱 Guests</button>
+      <button id="guestsBtn" class="pill qw-guests" title="Gli ospiti aggiungono canzoni dal telefono">📱 Ospiti</button>
     </header>
 
     <!-- Shown when the main karaoke window isn't open -->
     <div id="qwOffline" class="qw-banner" hidden>
-      The main karaoke window isn't open, so songs can be queued but won't play.
-      <a href="./" target="karaoke-main">Open it</a>
+      La finestra principale del karaoke non è aperta: puoi aggiungere canzoni alla coda, ma non partiranno.
+      <a href="./" target="karaoke-main">Aprila</a>
     </div>
 
     <!-- What the main window is doing -->
@@ -32,33 +32,33 @@
       <div class="r-sub" id="qwNowSong"></div>
       <blockquote id="qwNowMessage" class="q-msg" hidden></blockquote>
       <div class="qw-actions" id="qwImActions" hidden>
-        <button id="qwImStart" class="primary small">Start now</button>
-        <button id="qwImHold" class="ghost small">Hold</button>
-        <button id="qwImSkip" class="ghost small">Skip</button>
+        <button id="qwImStart" class="primary small">Inizia ora</button>
+        <button id="qwImHold" class="ghost small">Aspetta</button>
+        <button id="qwImSkip" class="ghost small">Salta</button>
       </div>
       <div class="qw-actions" id="qwSingActions" hidden>
-        <button id="qwNext" class="ghost small">⏭ Next singer</button>
+        <button id="qwNext" class="ghost small">⏭ Prossimo cantante</button>
       </div>
     </section>
 
     <div class="search">
-      <input id="searchInput" type="search" placeholder="Add a song: search title or artist…" autocomplete="off" spellcheck="false">
+      <input id="searchInput" type="search" placeholder="Aggiungi una canzone: cerca titolo o artista…" autocomplete="off" spellcheck="false">
       <ul id="results" hidden></ul>
     </div>
 
     <ol id="queueList"></ol>
-    <p id="queueEmpty" class="qp-empty">The queue is empty.<br>Search for a song above and pick who's singing it.</p>
+    <p id="queueEmpty" class="qp-empty">La coda è vuota.<br>Cerca una canzone qui sopra e scegli chi la canta.</p>
 
     <footer class="qp-foot">
-      <label class="check"><input id="fairToggle" type="checkbox"> Take turns fairly</label>
-      <button id="queueClear" class="ghost small">Clear queue</button>
+      <label class="check"><input id="fairToggle" type="checkbox"> Turni equi</label>
+      <button id="queueClear" class="ghost small">Svuota la coda</button>
     </footer>
   </main>
 
   <!-- Who's singing? (same ids as the main window, see ui.js) -->
   <dialog id="singerDialog">
     <form id="singerForm">
-      <h2>Who's singing?</h2>
+      <h2>Chi canta?</h2>
       <div class="sd-song">
         <img id="sdCover" alt="">
         <div>
@@ -66,19 +66,14 @@
           <div id="sdArtist" class="r-sub"></div>
         </div>
       </div>
-      <input id="singerInput" placeholder="Singer name" autocomplete="off" spellcheck="false" maxlength="40">
+      <input id="singerInput" placeholder="Nome di chi canta" autocomplete="off" spellcheck="false" maxlength="40">
       <div id="singerChips" class="chips"></div>
-      <div class="duet-row">
-        <label class="check"><input id="duetToggle" type="checkbox"> 🎤🎤 Duet</label>
-        <span id="duetHint" class="hint" hidden>This song has more than one artist. Sing it together?</span>
-      </div>
-      <input id="singer2Input" class="message-input" placeholder="Second singer's name" autocomplete="off" spellcheck="false" maxlength="40" hidden>
-      <input id="messageInput" class="message-input" placeholder="Message or dedication (optional)" autocomplete="off" maxlength="160">
-      <p class="hint">Shown and read aloud while everyone waits for this song.</p>
+      <input id="messageInput" class="message-input" placeholder="Messaggio o dedica (facoltativo)" autocomplete="off" maxlength="160">
+      <p class="hint">Viene mostrato e letto ad alta voce mentre si aspetta questa canzone.</p>
       <div class="sd-actions">
-        <button id="sdCancel" type="button" class="ghost">Cancel</button>
-        <button id="sdNow" type="button" value="now" class="ghost">Sing now</button>
-        <button id="sdQueue" type="submit" value="queue" class="primary">Add to queue</button>
+        <button id="sdCancel" type="button" class="ghost">Annulla</button>
+        <button id="sdNow" type="button" value="now" class="ghost">Canta subito</button>
+        <button id="sdQueue" type="submit" value="queue" class="primary">Aggiungi alla coda</button>
       </div>
     </form>
   </dialog>

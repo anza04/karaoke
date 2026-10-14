@@ -1,8 +1,7 @@
 import * as auth from './auth.js';
 import * as sp from './spotify.js';
 import { findLyrics } from './lyrics.js';
-import { assignParts } from './duet.js';
-import { queue, singersOf, singerLabel } from './queue.js';
+import { queue } from './queue.js';
 import * as channel from './channel.js';
 import { createFaceSnow } from './facesnow.js';
 import * as party from './party.js';
@@ -13,7 +12,7 @@ const { store } = auth;
 const OFFSET_STEP = 250;   // ms per sync nudge
 const POLL_MS = 1000;      // how often we ask Spotify where playback is
 const HOLD_MS = 2000;      // ignore polls briefly after our own actions (Spotify lags behind)
-const WEB_PLAYER_NAME = 'Karaoke (this browser)';
+const WEB_PLAYER_NAME = 'Karaoke (questo browser)';
 const INTERMISSION_S = 20; // countdown between singers
 const END_MARGIN_MS = 500; // stop this close to the end, before Spotify autoplays something else
 
@@ -70,7 +69,7 @@ function show(id) {
 
 function bindSetupEvents() {
   $('copyRedirect').onclick = () => {
-    navigator.clipboard?.writeText(auth.REDIRECT_URI).then(() => toast('Redirect URI copied'), () => {});
+    navigator.clipboard?.writeText(auth.REDIRECT_URI).then(() => toast('Redirect URI copiato'), () => {});
   };
   $('setupForm').onsubmit = (e) => {
     e.preventDefault();
@@ -88,10 +87,10 @@ async function startApp() {
   search = setupSearch({ onPick: (t) => openSingerDialog(t), onPlayNow: playNow, onError: handleError });
   openSingerDialog = setupSingerDialog({
     isIdle,
-    currentSinger: () => singersOf(state.nowEntry),
+    currentSinger: () => state.nowEntry?.singer,
     onAdded: (entry, action) => {
       if (action === 'now') startWithIntro(entry);
-      else toast(`Added for ${singerLabel(entry)} — #${queue.items.indexOf(entry) + 1} in the queue`);
+      else toast(`Aggiunta per ${entry.singer}: n. ${queue.items.indexOf(entry) + 1} in coda`);
     },
   });
   faceSnow = createFaceSnow($('faceSnow'));
@@ -111,7 +110,7 @@ async function startApp() {
   channel.listen(onChannelMessage);
   setInterval(broadcastStatus, 2000);  // heartbeat, so queue windows know we're here
   broadcastStatus();
-  setStatus('Search for a song to start singing.');
+  setStatus('Cerca una canzone per iniziare a cantare.');
 
   sp.loadWebPlayer({
     name: WEB_PLAYER_NAME,
@@ -127,8 +126,8 @@ async function startApp() {
     onState: onSdkState,
     onError: (type, msg) => {
       console.warn(type, msg);
-      if (type === 'account_error') toast('Playing in the browser needs Spotify Premium. You can still pick another device.');
-      else if (type !== 'playback_error') toast(`Browser player: ${msg}`);
+      if (type === 'account_error') toast('Per suonare nel browser serve Spotify Premium. Puoi comunque scegliere un altro dispositivo.');
+      else if (type !== 'playback_error') toast(`Player del browser: ${msg}`);
     },
   });
 
@@ -164,7 +163,7 @@ function renderDevices() {
   const sel = $('deviceSelect');
   sel.replaceChildren();
   if (!state.devices.length) {
-    sel.append(new Option('No devices — open Spotify somewhere', ''));
+    sel.append(new Option('Nessun dispositivo: apri Spotify da qualche parte', ''));
     sel.disabled = true;
     return;
   }
@@ -172,7 +171,7 @@ function renderDevices() {
   for (const d of state.devices) {
     const isWeb = d.id === state.webDeviceId;
     const icon = isWeb ? '🌐' : DEVICE_ICONS[d.type?.toLowerCase()] || '🎵';
-    const opt = new Option(`${icon} ${isWeb ? 'This browser' : d.name}`, d.id);
+    const opt = new Option(`${icon} ${isWeb ? 'Questo browser' : d.name}`, d.id);
     opt.disabled = !!d.is_restricted;
     sel.append(opt);
   }
@@ -190,7 +189,7 @@ async function onDeviceChange(id) {
     await sp.transferPlayback(id, pb.isPlaying);
     pb.deviceId = id;
     hold();
-    toast(`Playing on ${$('deviceSelect').selectedOptions[0]?.text ?? 'new device'}`);
+    toast(`In riproduzione su ${$('deviceSelect').selectedOptions[0]?.text ?? 'nuovo dispositivo'}`);
   } catch (e) {
     handleError(e);
   }
@@ -276,7 +275,7 @@ async function playOnDevice(track) {
   if (!state.deviceId) {
     await refreshDevices();
     if (!state.deviceId) {
-      toast('No playback device found. Open Spotify on a device, or wait for the browser player to load.');
+      toast('Nessun dispositivo trovato. Apri Spotify su un dispositivo, oppure attendi che si carichi il player del browser.');
       return false;
     }
   }
@@ -302,7 +301,7 @@ async function playNow(track) {
 
 async function togglePlay() {
   const pb = state.pb;
-  if (!pb?.track) return toast('Search for a song first.');
+  if (!pb?.track) return toast('Prima cerca una canzone.');
   const device = pb.deviceId || state.deviceId;
   try {
     if (device === state.webDeviceId) await state.player?.activateElement();
@@ -354,7 +353,7 @@ async function startEntry(entry) {
     // Put it back so nobody loses their turn.
     state.nowEntry = null;
     renderNowSinger();
-    queue.add(entry.track, entry.singer, { singer2: entry.singer2 ?? '', front: true, message: entry.message ?? '' });
+    queue.add(entry.track, entry.singer, { front: true, message: entry.message ?? '' });
   }
 }
 
@@ -398,11 +397,11 @@ async function onSongEnded() {
   hold();
   updatePlayButton();
   if (queue.next) showIntermission();
-  else if (!maybeShowIdle()) setStatus('That\'s a wrap! 🎉 Search for more songs to keep the party going.');
+  else if (!maybeShowIdle()) setStatus('Finito! 🎉 Cerca altre canzoni per continuare la festa.');
 }
 
 async function nextSinger() {
-  if (!queue.next) return toast('The queue is empty — search for a song to add one.');
+  if (!queue.next) return toast('La coda è vuota: cerca una canzone per aggiungerne una.');
   state.endedPb = state.pb;
   state.nowEntry = null;
   renderNowSinger();
@@ -420,7 +419,7 @@ function showIntermission() {
   if (!entry) return hideIntermission();
   Object.assign(state.im, { remaining: INTERMISSION_S, held: false });
   fillIntermission(entry);
-  $('imHold').textContent = 'Hold';
+  $('imHold').textContent = 'Aspetta';
   hideIdle();
   setStatus('');
   $('intermission').hidden = false;
@@ -433,7 +432,7 @@ function showIntermission() {
 
 function fillIntermission(entry) {
   state.im.entryId = entry.id;
-  $('imSinger').textContent = singerLabel(entry);
+  $('imSinger').textContent = entry.singer;
   $('imCover').src = (entry.track.album.images[1] || entry.track.album.images[0])?.url || '';
   $('imTitle').textContent = entry.track.name;
   $('imArtist').textContent = artistNames(entry.track);
@@ -473,12 +472,11 @@ function hideIntermission({ keepBackground = false } = {}) {
 function renderNowSinger() {
   const e = state.nowEntry;
   $('singerChip').hidden = !e;
-  $('singerChip').textContent = e ? `🎤 ${singerLabel(e)}` : '';
-  applyParts();
+  $('singerChip').textContent = e ? `🎤 ${e.singer}` : '';
   $('lvSinger').hidden = !e;
-  $('lvSinger').textContent = e ? `🎤 ${singerLabel(e)}` : '';
+  $('lvSinger').textContent = e ? `🎤 ${e.singer}` : '';
   $('qpNow').hidden = !e;
-  $('qpNow').textContent = e ? `🎤 Now singing: ${singerLabel(e)} — ${e.track.name}` : '';
+  $('qpNow').textContent = e ? `🎤 Ora canta: ${e.singer} — ${e.track.name}` : '';
   broadcastStatus();
   party.publish();
 }
@@ -487,7 +485,7 @@ function renderQueue() {
   const next = queue.next;
   $('queueCount').textContent = queue.items.length;
   $('upNext').hidden = !next;
-  if (next) $('upNext').textContent = `Up next: ${singerLabel(next)} · ${next.track.name}`;
+  if (next) $('upNext').textContent = `Il prossimo: ${next.singer} · ${next.track.name}`;
   renderQueueList({ onStart: startEntry });
 
   // Someone added a song while the QR screen was up (e.g. from their phone): on with the show.
@@ -516,13 +514,13 @@ function intermissionSkip() {
   if (queue.next) showIntermission();
   else {
     hideIntermission();
-    if (!maybeShowIdle()) setStatus('The queue is empty — search for a song to add one.');
+    if (!maybeShowIdle()) setStatus('La coda è vuota: cerca una canzone per aggiungerne una.');
   }
 }
 
 function intermissionHold() {
   state.im.held = !state.im.held;
-  $('imHold').textContent = state.im.held ? 'Resume' : 'Hold';
+  $('imHold').textContent = state.im.held ? 'Riprendi' : 'Aspetta';
   broadcastStatus();
 }
 
@@ -540,7 +538,7 @@ let speechRate = Number(store.get('karaoke.speechRate')) || 1;  // 1 = the voice
 
 function renderSpeakButton() {
   $('imSpeak').hidden = !canSpeak;
-  $('imSpeak').textContent = speechOn ? '🔊 Read aloud: on' : '🔇 Read aloud: off';
+  $('imSpeak').textContent = speechOn ? '🔊 Lettura ad alta voce: sì' : '🔇 Lettura ad alta voce: no';
   $('imRate').hidden = !canSpeak || !speechOn;
   $('imRate').value = String(speechRate);
 }
@@ -583,7 +581,7 @@ async function setParty(action) {
     else {
       const hooks = {
         currentEntry: () => state.nowEntry,
-        onAdded: (entry) => toast(`📱 ${singerLabel(entry)} added “${entry.track.name}”`),
+        onAdded: (entry) => toast(`📱 ${entry.singer} ha aggiunto “${entry.track.name}”`),
       };
       if (action === 'renew') await party.renew(hooks);
       else await party.start(hooks);
@@ -633,7 +631,7 @@ function detachQueue() {
   toggleQueuePanel(false);
   if (state.queueWin && !state.queueWin.closed) return state.queueWin.focus();
   state.queueWin = window.open('queue.html', 'karaoke-queue', 'popup,width=460,height=820');
-  if (!state.queueWin) toast('Your browser blocked the pop-up. Allow pop-ups for this page and try again.');
+  if (!state.queueWin) toast('Il browser ha bloccato la finestra pop-up. Consenti i pop-up per questa pagina e riprova.');
 }
 
 /** Tells queue windows what's going on here: who sings, whether we're idle, the countdown. */
@@ -676,7 +674,7 @@ async function loadLyrics(track) {
   state.lyricsKey = key;
   state.lyrics = null;
   renderLyrics();
-  setStatus('Looking for lyrics…');
+  setStatus('Cerco il testo…');
   state.lyricsLoading = true;
   renderView();
 
@@ -691,7 +689,7 @@ async function loadLyrics(track) {
       });
       lyricsCache.set(key, result);
     } catch (e) {
-      if (state.lyricsKey === key) setStatus(`Couldn't reach the lyrics service (${e.message}).`);
+      if (state.lyricsKey === key) setStatus(`Il servizio dei testi non risponde (${e.message}).`);
       return;
     }
   }
@@ -721,39 +719,12 @@ function renderLyrics() {
     if (!line.text) el.classList.add('gap');
     el.append(span);
     if (state.lyrics.kind === 'synced') {
-      el.title = 'Click to jump here';
+      el.title = 'Clicca per saltare qui';
       el.onclick = () => seekTo(state.lyrics.lines[i].time - state.offsetMs);
     }
     box.append(el);
   });
   state.lineEls = [...box.children];
-  applyParts();
-}
-
-/** Duets: colour each line by who sings it (first singer, second singer, or both) and show a legend. */
-function applyParts() {
-  const e = state.nowEntry;
-  const lines = state.lyrics?.lines;
-  const duet = !!(e?.singer2 && lines?.length && state.lyricsKey === trackKey(e.track) && state.lineEls.length);
-  const artists = (state.pb?.track ?? e?.track)?.artists?.map((a) => a.name) ?? [];
-  const parts = duet ? assignParts(lines, artists) : [];
-  state.lineEls.forEach((el, i) => {
-    el.classList.remove('part-a', 'part-b', 'part-both');
-    if (duet) el.classList.add(`part-${parts[i]}`);
-  });
-  $('lyrics').classList.toggle('duet', duet);
-
-  const legend = $('duetLegend');
-  legend.hidden = !duet;
-  legend.replaceChildren();
-  if (duet) {
-    for (const [cls, name] of [['part-a', e.singer], ['part-b', e.singer2], ['part-both', 'Both']]) {
-      const item = document.createElement('span');
-      item.className = cls;
-      item.textContent = name;
-      legend.append(item);
-    }
-  }
 }
 
 function activeLineIndex(lines, t) {
@@ -849,7 +820,7 @@ function renderTrack() {
     setBackground(null);
     renderView();
     document.title = 'Karaoke';
-    setStatus(pb ? 'Nothing singable is playing right now.' : 'Search for a song to start singing.');
+    setStatus(pb ? 'Al momento non c\'è niente da cantare.' : 'Cerca una canzone per iniziare a cantare.');
     return;
   }
   const images = t.album?.images ?? [];
@@ -868,7 +839,7 @@ function renderTrack() {
 function updatePlayButton() {
   const playing = !!state.pb?.isPlaying;
   $('playPause').textContent = playing ? '❚❚' : '▶';
-  $('playPause').setAttribute('aria-label', playing ? 'Pause' : 'Play');
+  $('playPause').setAttribute('aria-label', playing ? 'Pausa' : 'Play');
   if (playing) hideIdle();
   $('listenView').classList.toggle('playing', playing);
   broadcastStatus();
@@ -876,7 +847,7 @@ function updatePlayButton() {
 
 function updateOffsetLabel() {
   const s = state.offsetMs / 1000;
-  $('offsetLabel').textContent = `sync ${s > 0 ? '+' : ''}${s.toFixed(2)}s`;
+  $('offsetLabel').textContent = `sinc. ${s > 0 ? '+' : ''}${s.toFixed(2)}s`;
 }
 
 function setStatus(msg) {
@@ -889,18 +860,18 @@ function handleError(e) {
   if (e.status === 401) {
     auth.logout();
     show('login');
-    return toast('Your Spotify session expired — please connect again.');
+    return toast('La sessione di Spotify è scaduta: ricollegati.');
   }
   if (e.status === 403) {
-    if (e.reason === 'PREMIUM_REQUIRED') return toast('Controlling playback requires Spotify Premium.');
+    if (e.reason === 'PREMIUM_REQUIRED') return toast('Per controllare la riproduzione serve Spotify Premium.');
     if (/not registered|developer dashboard/i.test(e.message)) {
-      return toast('This Spotify account isn\'t allowed to use your developer app yet. Add it under "User Management" in the Spotify dashboard.');
+      return toast('Questo account Spotify non è ancora autorizzato a usare la tua app sviluppatore. Aggiungilo in "User Management" nella dashboard di Spotify.');
     }
-    return toast(`Spotify refused that: ${e.message}`);
+    return toast(`Spotify ha rifiutato l'operazione: ${e.message}`);
   }
-  if (e.status === 404) return toast('That device isn\'t available. Open Spotify on it, then press ⟳ to refresh devices.');
-  if (e.status === 429) return toast('Spotify is rate-limiting requests. Try again in a moment.');
-  toast(e.message || 'Something went wrong.');
+  if (e.status === 404) return toast('Quel dispositivo non è disponibile. Apri Spotify lì, poi premi ⟳ per aggiornare i dispositivi.');
+  if (e.status === 429) return toast('Spotify sta limitando le richieste. Riprova tra poco.');
+  toast(e.message || 'Qualcosa è andato storto.');
 }
 
 /* ---------- events ---------- */
@@ -931,7 +902,7 @@ function bindAppEvents() {
   $('imRate').onchange = (e) => setSpeechRate(e.target.value);
 
   $('deviceSelect').onchange = (e) => onDeviceChange(e.target.value);
-  $('refreshDevices').onclick = () => refreshDevices().then(() => toast('Devices refreshed'));
+  $('refreshDevices').onclick = () => refreshDevices().then(() => toast('Dispositivi aggiornati'));
   $('playPause').onclick = togglePlay;
   $('progress').onclick = (e) => {
     const dur = state.pb?.track?.duration_ms;
@@ -974,7 +945,7 @@ function setListenMode(on) {
   store.set('karaoke.listen', on ? '1' : '0');
   $('listenBtn').setAttribute('aria-pressed', String(on));
   $('listenBtn').classList.toggle('on', on);
-  $('listenBtn').title = on ? 'Back to karaoke: show the lyrics (L)' : 'Listen mode: album cover instead of lyrics (L)';
+  $('listenBtn').title = on ? 'Torna al karaoke: mostra il testo (L)' : 'Modalità ascolto: copertina al posto del testo (L)';
   renderView();
 }
 
@@ -992,10 +963,10 @@ function renderView() {
 
   const L = state.lyrics;
   if (state.listenMode) setStatus('');
-  else if (!L) setStatus('No lyrics found for this song. Just enjoy the music 🎧');
-  else if (L.kind === 'instrumental') setStatus('Instrumental — no singing needed 🎶');
-  else if (L.kind === 'plain') setStatus('Only unsynced lyrics exist for this song, so they won\'t scroll by themselves.');
-  else if (L.approximate) setStatus('These lyrics are timed for a slightly different version — use the sync buttons if they drift.');
+  else if (!L) setStatus('Nessun testo trovato per questa canzone. Goditi la musica 🎧');
+  else if (L.kind === 'instrumental') setStatus('Brano strumentale: niente da cantare 🎶');
+  else if (L.kind === 'plain') setStatus('Per questa canzone c\'è solo il testo non sincronizzato, quindi non scorrerà da solo.');
+  else if (L.approximate) setStatus('Questo testo è sincronizzato su una versione leggermente diversa: usa i pulsanti di sincronia se va fuori tempo.');
   else setStatus('');
   if (!listening) state.activeIdx = -2;  // re-centre the lyrics when they come back
 }

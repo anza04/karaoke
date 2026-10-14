@@ -1,7 +1,7 @@
 // Detached singer-queue window. It edits the shared queue directly (saved in localStorage)
 // and asks the main karaoke window, which owns playback, to start or skip songs.
 import * as auth from './auth.js';
-import { queue, singersOf, singerLabel } from './queue.js';
+import { queue } from './queue.js';
 import * as channel from './channel.js';
 import { $, toast, artistNames, setupSearch, setupSingerDialog, renderQueueList, bindQueueControls, setupGuestsDialog } from './ui.js';
 import * as party from './party.js';
@@ -14,15 +14,15 @@ let lastStatusAt = 0;
 const mainAlive = () => Date.now() - lastStatusAt < MAIN_TIMEOUT_MS;
 
 function askMain(msg) {
-  if (!mainAlive()) return toast('Open the main karaoke window first. It\'s the one that plays the music.');
+  if (!mainAlive()) return toast('Prima apri la finestra principale del karaoke: è quella che suona la musica.');
   channel.send(msg);
 }
 
 function handleError(e) {
   console.error(e);
-  if (e.status === 401) return toast('Your Spotify session expired. Sign in again from the main karaoke window.');
-  if (e.status === 429) return toast('Spotify is rate-limiting requests. Try again in a moment.');
-  toast(e.message || 'Something went wrong.');
+  if (e.status === 401) return toast('La sessione di Spotify è scaduta. Accedi di nuovo dalla finestra principale del karaoke.');
+  if (e.status === 429) return toast('Spotify sta limitando le richieste. Riprova tra poco.');
+  toast(e.message || 'Qualcosa è andato storto.');
 }
 
 /* ---------- rendering ---------- */
@@ -46,18 +46,18 @@ function renderStatus() {
 
   if (im) {
     const entry = queue.find(im.entryId) ?? queue.next;
-    $('qwNowLabel').textContent = im.held ? 'Up next · on hold' : `Up next in ${Math.max(im.remaining, 0)}s`;
-    $('qwNowSinger').textContent = singerLabel(entry);
+    $('qwNowLabel').textContent = im.held ? 'Il prossimo · in attesa' : `Il prossimo tra ${Math.max(im.remaining, 0)}s`;
+    $('qwNowSinger').textContent = entry?.singer ?? '';
     $('qwNowSong').textContent = entry ? `${entry.track.name} — ${artistNames(entry.track)}` : '';
-    $('qwImHold').textContent = im.held ? 'Resume' : 'Hold';
+    $('qwImHold').textContent = im.held ? 'Riprendi' : 'Aspetta';
     $('qwNowMessage').hidden = !entry?.message;
     $('qwNowMessage').textContent = entry?.message ? `“${entry.message}”` : '';
   } else if (s?.nowEntry) {
-    $('qwNowLabel').textContent = s.track?.isPlaying === false ? 'Paused' : 'Now singing';
-    $('qwNowSinger').textContent = singerLabel(s.nowEntry);
+    $('qwNowLabel').textContent = s.track?.isPlaying === false ? 'In pausa' : 'Ora canta';
+    $('qwNowSinger').textContent = s.nowEntry.singer;
     $('qwNowSong').textContent = `${s.nowEntry.track.name} — ${artistNames(s.nowEntry.track)}`;
   } else if (s?.track) {
-    $('qwNowLabel').textContent = s.track.isPlaying ? 'Playing (no singer)' : 'Paused';
+    $('qwNowLabel').textContent = s.track.isPlaying ? 'In riproduzione (senza cantante)' : 'In pausa';
     $('qwNowSinger').textContent = s.track.name;
     $('qwNowSong').textContent = s.track.artists;
   }
@@ -67,15 +67,15 @@ function renderStatus() {
 /* ---------- boot ---------- */
 
 if (!auth.isLoggedIn()) {
-  toast('Sign in from the main karaoke window first, then reopen this window.');
+  toast('Prima accedi dalla finestra principale del karaoke, poi riapri questa finestra.');
 }
 
 const openSingerDialog = setupSingerDialog({
   isIdle: () => mainAlive() && !!status?.idle,
-  currentSinger: () => (mainAlive() ? singersOf(status?.nowEntry) : []),
+  currentSinger: () => (mainAlive() ? status?.nowEntry?.singer : null),
   onAdded: (entry, action) => {
     if (action === 'now') askMain({ type: 'start', id: entry.id, intro: true });
-    else toast(`Added for ${singerLabel(entry)} — #${queue.items.indexOf(entry) + 1} in the queue`);
+    else toast(`Aggiunta per ${entry.singer}: n. ${queue.items.indexOf(entry) + 1} in coda`);
   },
 });
 
@@ -116,4 +116,4 @@ channel.listen((msg) => {
 channel.send({ type: 'hello' });
 setInterval(renderStatus, 1000);  // notices when the main window goes away
 
-if (!channel.supported) toast('This browser can\'t link windows together, so use the queue in the main window instead.');
+if (!channel.supported) toast('Questo browser non riesce a collegare le finestre: usa la coda nella finestra principale.');

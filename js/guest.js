@@ -5,6 +5,7 @@ import { connect, explain, isConfigured } from './backend.js';
 const $ = (id) => document.getElementById(id);
 const partyId = new URLSearchParams(location.search).get('p');
 const SEARCH_TIMEOUT_MS = 10_000;
+const PENDING_MS = 60_000;     // show "in arrivo" for a song we sent until the host picks it up
 
 const store = {
   get(k) { try { return localStorage.getItem(k); } catch { return null; } },
@@ -13,10 +14,12 @@ const store = {
 
 let db = null;
 let party = null;
-let pending = null;            // track waiting in the confirm dialog
+let pendingTrack = null;       // track waiting in the add sheet
 let searchSeq = 0;
 let searchTimer;
-const mine = new Set(JSON.parse(store.get(`karaoke.guest.mine.${partyId}`) || '[]'));  // our request ids
+const mineKey = `karaoke.guest.mine.${partyId}`;
+const mine = new Set(JSON.parse(store.get(mineKey) || '[]'));   // our request ids
+const sent = new Map();        // request id → { title, image, at } until it shows up in the queue
 
 /* ---------- small helpers ---------- */
 
@@ -25,7 +28,7 @@ function toast(msg) {
   $('toast').textContent = msg;
   $('toast').hidden = false;
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => { $('toast').hidden = true; }, 4000);
+  toastTimer = setTimeout(() => { $('toast').hidden = true; }, 3500);
 }
 
 function banner(msg) {
@@ -39,74 +42,125 @@ function status(msg) {
 }
 
 const artists = (t) => (t.artists ?? []).map((a) => a.name).join(', ');
-const singers = (e) => (e.singer2 ? `${e.singer} & ${e.singer2}` : e.singer);
+const myName = () => (store.get('karaoke.guest.name') || '').trim();
 
-function row({ image, title, sub, badge, mineRow }) {
-  const li = document.createElement('li');
-  if (mineRow) li.classList.add('mine');
-  const img = document.createElement('img');
-  img.src = image || '';
+function el(tag, cls, text) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (text != null) e.textContent = text;
+  return e;
+}
+
+function cover(src) {
+  const img = el('img', 'g-cover');
+  img.src = src || '';
   img.alt = '';
-  const text = document.createElement('div');
-  text.className = 'q-text';
-  const a = document.createElement('div');
-  a.className = 'r-title';
-  a.textContent = title;
-  const b = document.createElement('div');
-  b.className = 'r-sub';
-  b.textContent = sub;
-  text.append(a, b);
-  li.append(img, text);
-  if (badge) {
-    const s = document.createElement('span');
-    s.className = 'g-badge';
-    s.textContent = badge;
-    li.append(s);
-  }
-  return li;
+  return img;
+}
+
+/* ---------- screens & tabs ---------- */
+
+function showWelcome() {
+  $('gWelcome').hidden = false;
+  $('gMain').hidden = true;
+  $('gTabs').hidden = true;
+  $('gChangeName').hidden = true;
+  $('gName').value = myName();
+  setTimeout(() => $('gName').focus(), 50);
+}
+
+function showMain() {
+  $('gWelcome').hidden = true;
+  $('gMain').hidden = false;
+  $('gTabs').hidden = false;
+  $('gChangeName').hidden = false;
+  $('gChangeName').textContent = `Ciao, ${myName()} ✎`;
+}
+
+function showTab(name) {
+  $('tabSearch').hidden = name !== 'search';
+  $('tabQueue').hidden = name !== 'queue';
+  for (const b of $('gTabs').querySelectorAll('button')) b.classList.toggle('active', b.dataset.tab === name);
+  window.scrollTo({ top: 0 });
 }
 
 /* ---------- party state ---------- */
 
 function render() {
   const open = !!party?.open;
-  if (!party) banner('This party doesn\'t exist any more. Scan the QR code on the karaoke screen again.');
-  else if (!open) banner('The host has paused song requests for now.');
+  if (!party) banner('Questa festa non esiste più. Inquadra di nuovo il QR code sullo schermo del karaoke.');
+  else if (!open) banner('Per ora l\'host ha messo in pausa le richieste di canzoni.');
   else banner('');
   $('gSearch').disabled = !open;
 
+  // Who's singing now
   const now = party?.now;
+  const nowIsMe = !!now && mine.has(now.requestId);
   $('gNow').hidden = !now;
+  $('gNow').classList.toggle('me', nowIsMe);
   if (now) {
-    $('gNowSinger').textContent = singers(now);
+    $('gNowSinger').textContent = nowIsMe ? `Tocca a te, ${now.singer}! 🎤` : now.singer;
     $('gNowSong').textContent = `${now.title} — ${now.artists}`;
   }
 
+  // The queue
   const q = party?.queue ?? [];
+  for (const e of q) if (e.requestId) sent.delete(e.requestId);
   $('gQueueEmpty').hidden = q.length > 0;
-  $('gQueue').replaceChildren(...q.map((e, i) => row({
-    image: e.image,
-    title: singers(e),
-    sub: `${e.title} — ${e.artists}`,
-    badge: `#${i + 1}`,
-    mineRow: mine.has(e.requestId),
-  })));
+  $('gQueue').replaceChildren(...q.map((e, i) => {
+    const li = el('li', mine.has(e.requestId) ? 'mine' : '');
+    const text = el('div', 'g-text');
+    text.append(el('div', 'g-title', e.singer), el('div', 'g-muted', `${e.title} — ${e.artists}`));
+    li.append(el('span', 'g-pos', `${i + 1}`), cover(e.image), text);
+    return li;
+  }));
 
-  const ours = q.map((e, i) => ({ e, i })).filter(({ e }) => mine.has(e.requestId));
-  $('gMineBox').hidden = !ours.length;
-  $('gMine').replaceChildren(...ours.map(({ e, i }) => row({
-    image: e.image,
-    title: e.title,
-    sub: i === 0 ? 'You\'re next — get ready! 🎤' : `${i} singer${i === 1 ? '' : 's'} before you`,
-    badge: `#${i + 1}`,
-  })));
+  // My songs: queued ones with their position, plus ones still on their way
+  const cards = [];
+  q.forEach((e, i) => {
+    if (!mine.has(e.requestId)) return;
+    const card = el('div', `g-mine${i === 0 ? ' next' : ''}`);
+    const text = el('div', 'g-text');
+    text.append(
+      el('div', 'g-title', e.title),
+      el('div', 'g-muted', i === 0 ? 'Tocca a te! Preparati 🎤' : `Prima di te: ${i} ${i === 1 ? 'cantante' : 'cantanti'}`),
+    );
+    card.append(cover(e.image), text, el('div', 'g-mine-pos', `#${i + 1}`));
+    cards.push(card);
+  });
+  for (const [id, s] of sent) {
+    if (Date.now() - s.at > PENDING_MS) { sent.delete(id); continue; }
+    const card = el('div', 'g-mine pending');
+    const text = el('div', 'g-text');
+    text.append(el('div', 'g-title', s.title), el('div', 'g-muted', 'In arrivo sul maxischermo…'));
+    card.append(cover(s.image), text, el('div', 'g-spinner'));
+    cards.push(card);
+  }
+  $('gMineBox').hidden = !cards.length;
+  $('gMine').replaceChildren(...cards);
+
+  // Badge on the "Coda" tab: my best position, or a dot while a song is on its way
+  const firstMine = q.findIndex((e) => mine.has(e.requestId));
+  const badge = firstMine >= 0 ? `#${firstMine + 1}` : sent.size ? '•' : '';
+  $('gQueueBadge').textContent = badge;
+  $('gQueueBadge').hidden = !badge;
 }
 
 /* ---------- search (answered by the host) ---------- */
 
+function showSkeleton() {
+  $('gSearchEmpty').hidden = true;
+  $('gResults').replaceChildren(...Array.from({ length: 4 }, () => {
+    const li = el('li', 'skeleton');
+    li.append(el('div', 'g-cover'), el('div', 'g-text'));
+    return li;
+  }));
+}
+
 async function runSearch(q) {
   const seq = ++searchSeq;
-  status('Searching…');
+  status('');
+  showSkeleton();
   let unwatch = null;
   let path = null;
   let finished = false;
@@ -114,7 +168,8 @@ async function runSearch(q) {
     if (seq !== searchSeq) return;
     finished = true;
     unwatch?.();
-    status('The karaoke screen isn\'t answering. Is it still open?');
+    renderResults([]);
+    status('Lo schermo del karaoke non risponde. È ancora aperto?');
   }, SEARCH_TIMEOUT_MS);
 
   try {
@@ -129,112 +184,134 @@ async function runSearch(q) {
       unwatch?.();
       db.remove(path).catch(() => {});
       if (seq !== searchSeq) return;
-      status(s.error || (s.results?.length ? '' : 'No songs found.'));
       renderResults(s.results ?? []);
+      status(s.error ? 'Al momento il karaoke non riesce a cercare. Riprova tra poco.' : s.results?.length ? '' : 'Nessuna canzone trovata. Prova con altre parole.');
     }, (e) => {
       if (finished) return;  // late errors after we already have the answer don't matter
       finished = true;
       clearTimeout(giveUp);
-      if (seq === searchSeq) status(explain(e));
+      if (seq === searchSeq) { renderResults([]); status(explain(e)); }
     });
   } catch (e) {
     clearTimeout(giveUp);
-    if (seq === searchSeq) status(explain(e));
+    if (seq === searchSeq) { renderResults([]); status(explain(e)); }
   }
 }
 
 function renderResults(tracks) {
+  $('gSearchEmpty').hidden = tracks.length > 0 || !!$('gSearch').value.trim();
   $('gResults').replaceChildren(...tracks.map((t) => {
-    const li = row({ image: t.album?.images?.at(-1)?.url, title: t.name, sub: artists(t), badge: '+' });
-    li.tabIndex = 0;
-    li.onclick = () => openDialog(t);
-    li.onkeydown = (e) => { if (e.key === 'Enter') openDialog(t); };
+    const li = el('li', 'tappable');
+    const text = el('div', 'g-text');
+    text.append(el('div', 'g-title', t.name), el('div', 'g-muted', artists(t)));
+    const add = el('button', 'g-add', '+');
+    add.type = 'button';
+    add.setAttribute('aria-label', `Aggiungi ${t.name}`);
+    li.append(cover(t.album?.images?.at(-1)?.url), text, add);
+    li.onclick = () => openSheet(t);
     return li;
   }));
 }
 
+function clearSearch() {
+  searchSeq++;
+  clearTimeout(searchTimer);
+  $('gSearch').value = '';
+  $('gClear').hidden = true;
+  status('');
+  renderResults([]);
+}
+
 /* ---------- adding a song ---------- */
 
-function openDialog(track) {
-  const name = $('gName').value.trim();
-  if (!name) {
-    toast('Type your name first 🙂');
-    $('gName').focus();
-    return;
-  }
-  pending = track;
-  $('gdCover').src = track.album?.images?.at(-1)?.url || '';
-  $('gdTitle').textContent = track.name;
-  $('gdArtist').textContent = artists(track);
-  $('gdName').textContent = name;
-  $('gdMessage').value = '';
-  $('gdDuet').checked = false;
-  $('gdSinger2').value = '';
-  $('gdSinger2').hidden = true;
-  $('gdDuetHint').hidden = (track.artists?.length ?? 0) < 2;
-  $('gDialog').showModal();
+function openSheet(track) {
+  pendingTrack = track;
+  $('gsCover').src = track.album?.images?.at(-1)?.url || '';
+  $('gsTitle').textContent = track.name;
+  $('gsArtist').textContent = artists(track);
+  $('gsMessage').value = '';
+  $('gSheet').showModal();
+}
+
+function closeSheet() {
+  pendingTrack = null;
+  $('gSheet').close();
 }
 
 async function addPending() {
-  const track = pending;
-  pending = null;
-  $('gDialog').close();
+  const track = pendingTrack;
   if (!track) return;
-  $('gdAdd').disabled = true;
+  $('gsAdd').disabled = true;
+  $('gsAdd').textContent = 'Invio…';
   try {
-    const request = {
-      singer: $('gName').value.trim().slice(0, 40),
-      message: $('gdMessage').value.trim().slice(0, 160),
+    const id = await db.add(`parties/${partyId}/requests`, {
+      singer: myName().slice(0, 40),
+      message: $('gsMessage').value.trim().slice(0, 160),
       uri: track.uri,
       by: db.uid,
       createdAt: db.serverTime(),
-    };
-    const partner = $('gdDuet').checked ? $('gdSinger2').value.trim().slice(0, 40) : '';
-    if (partner) request.singer2 = partner;
-    const id = await db.add(`parties/${partyId}/requests`, request);
+    });
     mine.add(id);
-    store.set(`karaoke.guest.mine.${partyId}`, JSON.stringify([...mine].slice(-30)));
-    toast(`Sent! “${track.name}” will show up in the queue in a moment.`);
-    $('gSearch').value = '';
-    $('gResults').replaceChildren();
-    status('');
+    store.set(mineKey, JSON.stringify([...mine].slice(-30)));
+    sent.set(id, { title: track.name, image: track.album?.images?.at(-1)?.url, at: Date.now() });
+    closeSheet();
+    clearSearch();
+    toast(`“${track.name}” inviata! 🎉`);
+    render();
+    showTab('queue');
+    setTimeout(render, PENDING_MS + 500);  // drop the "in arrivo" card if it never arrived
   } catch (e) {
     toast(explain(e));
   } finally {
-    $('gdAdd').disabled = false;
+    $('gsAdd').disabled = false;
+    $('gsAdd').textContent = 'Aggiungi alla coda';
   }
 }
 
 /* ---------- boot ---------- */
 
-$('gName').value = store.get('karaoke.guest.name') || '';
-$('gName').addEventListener('input', () => store.set('karaoke.guest.name', $('gName').value.trim()));
+$('gNameForm').onsubmit = (e) => {
+  e.preventDefault();
+  const name = $('gName').value.trim();
+  if (!name) return;
+  store.set('karaoke.guest.name', name.slice(0, 40));
+  showMain();
+};
+$('gChangeName').onclick = showWelcome;
+for (const b of $('gTabs').querySelectorAll('button')) b.onclick = () => showTab(b.dataset.tab);
+
 $('gSearch').addEventListener('input', () => {
   clearTimeout(searchTimer);
   const q = $('gSearch').value.trim();
-  if (!q) {
-    searchSeq++;
-    status('');
-    $('gResults').replaceChildren();
-    return;
-  }
+  $('gClear').hidden = !$('gSearch').value;
+  if (!q) return clearSearch();
   searchTimer = setTimeout(() => runSearch(q), 600);
 });
-$('gDialogForm').onsubmit = (e) => { e.preventDefault(); addPending(); };
-$('gdCancel').onclick = () => { pending = null; $('gDialog').close(); };
-$('gdDuet').onchange = () => {
-  $('gdSinger2').hidden = !$('gdDuet').checked;
-  if ($('gdDuet').checked) $('gdSinger2').focus();
-};
+$('gSearch').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    clearTimeout(searchTimer);
+    const q = $('gSearch').value.trim();
+    if (q) runSearch(q);
+    $('gSearch').blur();  // hide the keyboard so the results are visible
+  }
+});
+$('gClear').onclick = () => { clearSearch(); $('gSearch').focus(); };
+$('gSheetForm').onsubmit = (e) => { e.preventDefault(); addPending(); };
+$('gsCancel').onclick = closeSheet;
+$('gSheet').addEventListener('click', (e) => { if (e.target === $('gSheet')) closeSheet(); });  // tap outside
+
+if (myName()) showMain();
+else showWelcome();
 
 (async () => {
-  if (!partyId) return banner('This link is missing its party code. Scan the QR code on the karaoke screen again.');
-  if (!isConfigured()) return banner('Song requests aren\'t set up on this karaoke yet.');
+  if (!partyId) return banner('A questo link manca il codice della festa. Inquadra di nuovo il QR code sullo schermo del karaoke.');
+  if (!isConfigured()) return banner('Le richieste di canzoni non sono ancora attive su questo karaoke.');
   $('gSearch').disabled = true;
   // Say what's happening, so a slow or blocked connection doesn't look like a broken page.
-  banner('Connecting to the karaoke…');
+  banner('Connessione al karaoke…');
   const slow = setTimeout(() => {
-    banner('Still connecting… Check that your phone has internet, or open this link in another browser (e.g. Chrome or Safari).');
+    banner('Connessione ancora in corso… Controlla che il telefono sia collegato a internet, oppure apri il link con un altro browser (per esempio Chrome o Safari).');
   }, 12_000);
   try {
     db = await connect();

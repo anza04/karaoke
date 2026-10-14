@@ -61,8 +61,8 @@ export async function handleRedirect() {
   if (!p.has('code') && !p.has('error')) return;
   history.replaceState(null, '', REDIRECT_URI);
 
-  if (p.get('error')) throw new Error(`Spotify login failed: ${p.get('error')}`);
-  if (p.get('state') !== store.get('karaoke.state')) throw new Error('Login state mismatch, please try again.');
+  if (p.get('error')) throw new Error(`Accesso a Spotify non riuscito: ${p.get('error')}`);
+  if (p.get('state') !== store.get('karaoke.state')) throw new Error('Accesso non valido, riprova.');
 
   await tokenRequest({
     grant_type: 'authorization_code',
@@ -81,7 +81,7 @@ async function tokenRequest(body) {
     body: new URLSearchParams({ client_id: getClientId(), ...body }),
   });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error_description || data.error || 'Spotify token request failed');
+  if (!res.ok) throw new Error(data.error_description || data.error || 'Richiesta del token Spotify non riuscita');
 
   const prev = loadTokens();
   store.set('karaoke.tokens', JSON.stringify({
@@ -104,7 +104,7 @@ let refreshing = null;
 async function refreshTokens() {
   const run = async () => {
     const t = loadTokens();
-    if (!t) throw new Error('Not signed in');
+    if (!t) throw new Error('Accesso non effettuato');
     if (Date.now() < t.expiresAt - 60_000) return;  // another window just refreshed
     await tokenRequest({ grant_type: 'refresh_token', refresh_token: t.refresh });
   };
@@ -114,7 +114,7 @@ async function refreshTokens() {
 
 export async function getAccessToken() {
   const t = loadTokens();
-  if (!t) throw Object.assign(new Error('Not signed in'), { status: 401 });
+  if (!t) throw Object.assign(new Error('Accesso non effettuato'), { status: 401 });
   if (Date.now() < t.expiresAt - 60_000) return t.access;
 
   refreshing ??= refreshTokens().finally(() => { refreshing = null; });
@@ -122,7 +122,7 @@ export async function getAccessToken() {
     await refreshing;
   } catch (e) {
     logout();
-    throw Object.assign(new Error(`Session expired: ${e.message}`), { status: 401 });
+    throw Object.assign(new Error(`Sessione scaduta: ${e.message}`), { status: 401 });
   }
   return loadTokens().access;
 }

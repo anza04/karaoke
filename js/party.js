@@ -7,7 +7,7 @@
 import { APP_BASE, store } from './auth.js';
 import { CONFIG } from './config.js';
 import { connect, explain, isConfigured } from './backend.js';
-import { queue, slimTrack, singersOf } from './queue.js';
+import { queue, slimTrack } from './queue.js';
 import * as sp from './spotify.js';
 
 const KEY = 'karaoke.party';   // { id, on, url, error } — also read by the queue window
@@ -44,7 +44,7 @@ const randomId = () =>
 export async function start(newHooks = {}) {
   hooks = { ...hooks, ...newHooks };
   if (!isConfigured()) {
-    save({ on: false, error: 'Firebase isn\'t set up yet. See the README.' });
+    save({ on: false, error: 'Firebase non è ancora configurato. Vedi il README.' });
     throw new Error(load().error);
   }
   try {
@@ -109,9 +109,8 @@ async function handleRequest({ id, data }) {
     // Use the track as Spotify reports it, not whatever the phone sent.
     const track = trackCache.get(data.uri) ?? (await sp.getTrack(trackId));
     const entry = queue.add(track, String(data.singer ?? '').slice(0, 40), {
-      singer2: String(data.singer2 ?? '').slice(0, 40),
       message: String(data.message ?? '').slice(0, 160),
-      current: singersOf(hooks.currentEntry()),
+      current: hooks.currentEntry()?.singer,
       requestId: id,
     });
     hooks.onAdded(entry);
@@ -135,7 +134,7 @@ async function handleSearch({ id, data }) {
     await db.update(path, { results, done: true });
   } catch (e) {
     console.error('guest search failed', e);
-    await db.update(path, { results: [], done: true, error: 'The karaoke host couldn\'t search right now.' }).catch(() => {});
+    await db.update(path, { results: [], done: true, error: 'Al momento il karaoke non riesce a cercare.' }).catch(() => {});
   }
 }
 
@@ -150,7 +149,6 @@ function publishNow() {
   if (!db || !partyId || !isOn()) return;
   const brief = (e) => ({
     singer: e.singer,
-    singer2: e.singer2 ?? null,
     title: e.track.name,
     artists: e.track.artists.map((a) => a.name).join(', '),
     image: e.track.album.images.at(-1)?.url ?? null,

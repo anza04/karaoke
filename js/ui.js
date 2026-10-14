@@ -1,7 +1,7 @@
 // UI pieces shared by the main karaoke window and the detached queue window.
 // Both pages use the same element ids for these parts.
 import * as sp from './spotify.js';
-import { queue, singerLabel } from './queue.js';
+import { queue } from './queue.js';
 
 export const $ = (id) => document.getElementById(id);
 
@@ -58,13 +58,13 @@ export function setupSearch({ onPick, onPlayNow, onError }) {
     if (!items.length) {
       const li = document.createElement('li');
       li.className = 'empty';
-      li.textContent = 'No songs found';
+      li.textContent = 'Nessuna canzone trovata';
       ul.append(li);
     }
     for (const t of items) {
       const li = document.createElement('li');
       li.tabIndex = 0;
-      li.title = 'Pick a singer';
+      li.title = 'Scegli chi canta';
       const img = document.createElement('img');
       img.src = t.album?.images?.at(-1)?.url || '';
       img.alt = '';
@@ -81,7 +81,7 @@ export function setupSearch({ onPick, onPlayNow, onError }) {
         const play = document.createElement('button');
         play.className = 'r-play';
         play.textContent = '▶';
-        play.title = 'Play now (skip the queue)';
+        play.title = 'Suona subito (salta la coda)';
         play.onclick = (e) => { e.stopPropagation(); clear(); onPlayNow(t); };
         li.append(play);
       }
@@ -127,7 +127,6 @@ export function setupSingerDialog({ isIdle, currentSinger, onAdded }) {
     dialog.close();
     if (!track || (action !== 'queue' && action !== 'now')) return;
     const entry = queue.add(track, $('singerInput').value, {
-      singer2: $('duetToggle').checked ? $('singer2Input').value : '',
       front: action === 'now',
       current: currentSinger(),
       message: $('messageInput').value,
@@ -142,7 +141,7 @@ export function setupSingerDialog({ isIdle, currentSinger, onAdded }) {
     $('sdArtist').textContent = artistNames(track);
 
     const idle = isIdle();
-    $('sdQueue').textContent = idle ? 'Start singing' : 'Add to queue';
+    $('sdQueue').textContent = idle ? 'Inizia a cantare' : 'Aggiungi alla coda';
     $('sdQueue').value = idle ? 'now' : 'queue';
     $('sdNow').hidden = idle;
 
@@ -155,16 +154,12 @@ export function setupSingerDialog({ isIdle, currentSinger, onAdded }) {
       pick.type = 'button';
       pick.textContent = name;
       // Fill in the name, then let them add a message (or just press Enter).
-      pick.onclick = () => {
-        const second = $('duetToggle').checked && $('singerInput').value.trim() && !$('singer2Input').value.trim();
-        $(second ? 'singer2Input' : 'singerInput').value = name;
-        $(!$('duetToggle').checked || second ? 'messageInput' : 'singer2Input').focus();
-      };
+      pick.onclick = () => { $('singerInput').value = name; $('messageInput').focus(); };
       const forget = document.createElement('button');
       forget.type = 'button';
       forget.className = 'chip-x';
       forget.textContent = '×';
-      forget.title = `Forget ${name}`;
+      forget.title = `Dimentica ${name}`;
       forget.onclick = () => { queue.forgetSinger(name); chip.remove(); };
       chip.append(pick, forget);
       chips.append(chip);
@@ -172,10 +167,6 @@ export function setupSingerDialog({ isIdle, currentSinger, onAdded }) {
 
     $('singerInput').value = '';
     $('messageInput').value = '';
-    $('duetToggle').checked = false;
-    $('singer2Input').value = '';
-    $('singer2Input').hidden = true;
-    $('duetHint').hidden = (track.artists?.length ?? 0) < 2;
     dialog.showModal();
     $('singerInput').focus();
   }
@@ -186,10 +177,6 @@ export function setupSingerDialog({ isIdle, currentSinger, onAdded }) {
   $('singerForm').onsubmit = (e) => { e.preventDefault(); finish($('sdQueue').value); };
   $('sdNow').onclick = () => finish('now');
   $('sdCancel').onclick = () => finish('cancel');
-  $('duetToggle').onchange = () => {
-    $('singer2Input').hidden = !$('duetToggle').checked;
-    if ($('duetToggle').checked) $(($('singerInput').value.trim() ? 'singer2Input' : 'singerInput')).focus();
-  };
   dialog.addEventListener('cancel', () => { pending = null; }); // Esc
 
   return open;
@@ -215,7 +202,7 @@ export function renderQueueList({ onStart }) {
     text.className = 'q-text';
     const who = document.createElement('div');
     who.className = 'q-singer';
-    who.textContent = singerLabel(e);
+    who.textContent = e.singer;
     const what = document.createElement('div');
     what.className = 'r-sub';
     what.textContent = `${e.track.name} — ${artistNames(e.track)}`;
@@ -238,10 +225,10 @@ export function renderQueueList({ onStart }) {
       return b;
     };
     btns.append(
-      mk('▶', 'Sing this now', () => onStart(e)),
-      mk('↑', 'Move up', () => queue.move(e.id, -1), i === 0),
-      mk('↓', 'Move down', () => queue.move(e.id, 1), i === items.length - 1),
-      mk('✕', 'Remove', () => queue.remove(e.id)),
+      mk('▶', 'Canta subito', () => onStart(e)),
+      mk('↑', 'Sposta su', () => queue.move(e.id, -1), i === 0),
+      mk('↓', 'Sposta giù', () => queue.move(e.id, 1), i === items.length - 1),
+      mk('✕', 'Rimuovi', () => queue.remove(e.id)),
     );
     li.append(img, text, btns);
     ol.append(li);
@@ -270,15 +257,15 @@ export function setupGuestsDialog({ getState, onToggle, onRenew }) {
   const dialog = document.createElement('dialog');
   dialog.id = 'guestsDialog';
   dialog.innerHTML = `
-    <h2>📱 Guests add songs</h2>
-    <p class="hint">Friends scan this with their phone camera to search and queue songs. They don't need Spotify.</p>
-    <div class="gd-qr"><img alt="QR code for the song request page"><p class="gd-note"></p></div>
+    <h2>📱 Gli ospiti aggiungono canzoni</h2>
+    <p class="hint">Gli amici inquadrano il codice con la fotocamera del telefono per cercare canzoni e metterle in coda. Non serve Spotify.</p>
+    <div class="gd-qr"><img alt="QR code per la pagina delle richieste"><p class="gd-note"></p></div>
     <a class="gd-url" target="_blank" rel="noopener"></a>
     <p class="qw-banner gd-error" hidden></p>
     <div class="sd-actions">
-      <button type="button" class="ghost small gd-renew" title="Make a new QR code. The old one stops working.">New code</button>
+      <button type="button" class="ghost small gd-renew" title="Crea un nuovo QR code. Quello vecchio smette di funzionare.">Nuovo codice</button>
       <button type="button" class="primary gd-toggle"></button>
-      <button type="button" class="ghost gd-close">Close</button>
+      <button type="button" class="ghost gd-close">Chiudi</button>
     </div>`;
   document.body.append(dialog);
   const q = (sel) => dialog.querySelector(sel);
@@ -292,16 +279,16 @@ export function setupGuestsDialog({ getState, onToggle, onRenew }) {
     if (qr) img.src = qr;
     q('.gd-note').hidden = !!qr;
     q('.gd-note').textContent = !s.on
-      ? 'Song requests from phones are off.'
+      ? 'Le richieste di canzoni dai telefoni sono disattivate.'
       : !s.url
-        ? 'Phones can\'t open this laptop\'s address. Publish the app (e.g. on GitHub Pages) and set publicUrl in js/config.js.'
-        : 'The QR code couldn\'t be drawn, but the link below works too.';
+        ? 'I telefoni non possono aprire l\'indirizzo di questo computer. Pubblica l\'app (per esempio su GitHub Pages) e imposta publicUrl in js/config.js.'
+        : 'Non è stato possibile disegnare il QR code, ma funziona anche il link qui sotto.';
     q('.gd-url').hidden = !(s.on && s.url);
     q('.gd-url').href = s.url || '#';
     q('.gd-url').textContent = s.url || '';
     q('.gd-error').hidden = !s.error;
     q('.gd-error').textContent = s.error || '';
-    q('.gd-toggle').textContent = busy ? '…' : s.on ? 'Turn off' : 'Turn on';
+    q('.gd-toggle').textContent = busy ? '…' : s.on ? 'Disattiva' : 'Attiva';
     q('.gd-toggle').disabled = busy;
     q('.gd-renew').hidden = !s.on;
   }
@@ -316,7 +303,7 @@ export function setupGuestsDialog({ getState, onToggle, onRenew }) {
 
   q('.gd-toggle').onclick = () => run(() => onToggle(!getState().on));
   q('.gd-renew').onclick = () => {
-    if (confirm('Make a new QR code? People using the old one will need to scan again.')) run(onRenew);
+    if (confirm('Creare un nuovo QR code? Chi usa quello vecchio dovrà inquadrarlo di nuovo.')) run(onRenew);
   };
   q('.gd-close').onclick = () => dialog.close();
   window.addEventListener('storage', (e) => { if (e.key === 'karaoke.party' || e.key === null) render(); });
@@ -332,5 +319,5 @@ export function setupGuestsDialog({ getState, onToggle, onRenew }) {
 
 export function bindQueueControls() {
   $('fairToggle').onchange = (e) => queue.setFair(e.target.checked);
-  $('queueClear').onclick = () => { if (confirm('Remove every song from the queue?')) queue.clear(); };
+  $('queueClear').onclick = () => { if (confirm('Rimuovere tutte le canzoni dalla coda?')) queue.clear(); };
 }

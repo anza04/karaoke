@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="it">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -17,18 +17,18 @@
   <section id="setup" class="screen" hidden>
     <div class="card">
       <h1>🎤 Karaoke</h1>
-      <p>One-time setup: connect this app to your own Spotify developer app.</p>
+      <p>Configurazione iniziale (una volta sola): collega questa app alla tua app sviluppatore di Spotify.</p>
       <ol>
-        <li>Open <a href="https://developer.spotify.com/dashboard" target="_blank" rel="noopener">developer.spotify.com/dashboard</a> and click <b>Create app</b>.</li>
-        <li>Add this <b>Redirect URI</b>:
-          <span class="copyrow"><code id="redirectUri"></code><button id="copyRedirect" type="button" class="ghost small">Copy</button></span>
+        <li>Apri <a href="https://developer.spotify.com/dashboard" target="_blank" rel="noopener">developer.spotify.com/dashboard</a> e clicca <b>Create app</b>.</li>
+        <li>Aggiungi questo <b>Redirect URI</b>:
+          <span class="copyrow"><code id="redirectUri"></code><button id="copyRedirect" type="button" class="ghost small">Copia</button></span>
         </li>
-        <li>Under <i>Which API/SDKs are you planning to use?</i> tick <b>Web API</b> and <b>Web Playback SDK</b>, then save.</li>
-        <li>Copy the app's <b>Client ID</b> and paste it here:</li>
+        <li>Alla voce <i>Which API/SDKs are you planning to use?</i> spunta <b>Web API</b> e <b>Web Playback SDK</b>, poi salva.</li>
+        <li>Copia il <b>Client ID</b> dell'app e incollalo qui:</li>
       </ol>
       <form id="setupForm">
-        <input id="clientIdInput" placeholder="Client ID (32 characters)" autocomplete="off" spellcheck="false" required pattern="[0-9a-fA-F]{32}">
-        <button class="primary">Save</button>
+        <input id="clientIdInput" placeholder="Client ID (32 caratteri)" autocomplete="off" spellcheck="false" required pattern="[0-9a-fA-F]{32}">
+        <button class="primary">Salva</button>
       </form>
     </div>
   </section>
@@ -37,9 +37,9 @@
   <section id="login" class="screen" hidden>
     <div class="card center">
       <h1>🎤 Karaoke</h1>
-      <p>Sign in with your Spotify Premium account to start singing.</p>
-      <button id="loginBtn" class="primary big">Connect Spotify</button>
-      <button id="changeClient" type="button" class="ghost small">Change Client ID</button>
+      <p>Accedi con il tuo account Spotify Premium per iniziare a cantare.</p>
+      <button id="loginBtn" class="primary big">Collega Spotify</button>
+      <button id="changeClient" type="button" class="ghost small">Cambia Client ID</button>
     </div>
   </section>
 
@@ -48,19 +48,19 @@
     <header class="topbar">
       <div class="brand" aria-hidden="true">🎤</div>
       <div class="search">
-        <input id="searchInput" type="search" placeholder="Search a song or artist…  ( / )" autocomplete="off" spellcheck="false">
+        <input id="searchInput" type="search" placeholder="Cerca una canzone o un artista…  ( / )" autocomplete="off" spellcheck="false">
         <ul id="results" hidden></ul>
       </div>
       <div class="device">
-        <label for="deviceSelect" class="sr-only">Playback device</label>
-        <select id="deviceSelect" title="Where the music plays"></select>
-        <button id="refreshDevices" class="icon" title="Refresh devices">⟳</button>
+        <label for="deviceSelect" class="sr-only">Dispositivo di riproduzione</label>
+        <select id="deviceSelect" title="Dove suona la musica"></select>
+        <button id="refreshDevices" class="icon" title="Aggiorna i dispositivi">⟳</button>
       </div>
-      <button id="queueBtn" class="pill" title="Singer queue (Q)">👥 Queue <span id="queueCount" class="badge">0</span></button>
-      <button id="listenBtn" class="icon" title="Listen mode: album cover instead of lyrics (L)" aria-pressed="false">🎧</button>
-      <button id="snowBtn" class="icon" title="Face snow (S)" aria-pressed="false">❄️</button>
-      <button id="fullscreenBtn" class="icon" title="Fullscreen (F)">⛶</button>
-      <button id="logoutBtn" class="icon" title="Log out">⏻</button>
+      <button id="queueBtn" class="pill" title="Coda dei cantanti (Q)">👥 Coda <span id="queueCount" class="badge">0</span></button>
+      <button id="listenBtn" class="icon" title="Modalità ascolto: copertina al posto del testo (L)" aria-pressed="false">🎧</button>
+      <button id="snowBtn" class="icon" title="Neve di facce (S)" aria-pressed="false">❄️</button>
+      <button id="fullscreenBtn" class="icon" title="Schermo intero (F)">⛶</button>
+      <button id="logoutBtn" class="icon" title="Esci">⏻</button>
     </header>
 
     <section id="stage">
@@ -73,8 +73,7 @@
             <div id="trackArtist"></div>
           </div>
         </div>
-        <div id="duetLegend" class="duet-legend" hidden></div>
-        <button id="upNext" hidden title="Open the queue"></button>
+        <button id="upNext" hidden title="Apri la coda"></button>
       </div>
       <div id="lyricsViewport"><div id="lyrics"></div></div>
 
@@ -94,7 +93,7 @@
 
       <!-- Between songs: who's up next -->
       <div id="intermission" hidden>
-        <div class="im-label">Up next</div>
+        <div class="im-label">Il prossimo</div>
         <div id="imSinger" class="im-singer"></div>
         <div class="im-song">
           <img id="imCover" alt="">
@@ -106,68 +105,68 @@
         <figure id="imMessageBox" class="im-message" hidden>
           <blockquote id="imMessage"></blockquote>
           <div class="im-speech">
-            <button id="imSpeak" class="ghost small" title="Read the message aloud with the computer's voice"></button>
-            <label for="imRate" class="sr-only">Reading speed</label>
-            <select id="imRate" class="small-select" title="Reading speed">
-              <option value="0.7">🐢 Slow</option>
-              <option value="0.85">Relaxed</option>
-              <option value="1">Normal</option>
-              <option value="1.2">Brisk</option>
-              <option value="1.45">🐇 Fast</option>
+            <button id="imSpeak" class="ghost small" title="Leggi il messaggio ad alta voce con la voce del computer"></button>
+            <label for="imRate" class="sr-only">Velocità di lettura</label>
+            <select id="imRate" class="small-select" title="Velocità di lettura">
+              <option value="0.7">🐢 Lenta</option>
+              <option value="0.85">Rilassata</option>
+              <option value="1">Normale</option>
+              <option value="1.2">Svelta</option>
+              <option value="1.45">🐇 Veloce</option>
             </select>
           </div>
         </figure>
         <div id="imCountdown" class="im-count"></div>
         <div id="imQr" class="im-qr" hidden>
           <img alt="">
-          <span>Scan to add<br>your song</span>
+          <span>Inquadra per<br>aggiungere<br>la tua canzone</span>
         </div>
         <div class="im-actions">
-          <button id="imStart" class="primary big">Start now</button>
-          <button id="imHold" class="ghost">Hold</button>
-          <button id="imSkip" class="ghost">Skip this song</button>
+          <button id="imStart" class="primary big">Inizia ora</button>
+          <button id="imHold" class="ghost">Aspetta</button>
+          <button id="imSkip" class="ghost">Salta questa canzone</button>
         </div>
       </div>
 
       <!-- Nothing playing and nobody queued: invite people to add songs from their phones -->
       <div id="idleScreen" hidden>
-        <div class="im-label">Who's singing?</div>
-        <img id="idleQr" alt="QR code to add a song from your phone">
-        <div class="idle-title">Scan to add your song 🎤</div>
-        <div class="idle-sub">Point your phone camera at the code. No app or Spotify needed.</div>
-        <button id="idleHide" class="ghost small">Hide</button>
+        <div class="im-label">Chi canta?</div>
+        <img id="idleQr" alt="QR code per aggiungere una canzone dal telefono">
+        <div class="idle-title">Inquadra e aggiungi la tua canzone 🎤</div>
+        <div class="idle-sub">Punta la fotocamera del telefono sul codice. Non servono app né Spotify.</div>
+        <button id="idleHide" class="ghost small">Nascondi</button>
       </div>
     </section>
 
     <footer class="controls">
-      <button id="playPause" class="round" title="Play / Pause (Space)">▶</button>
-      <button id="nextBtn" class="icon" title="Next singer (N)">⏭</button>
+      <button id="playPause" class="round" title="Play / Pausa (Spazio)">▶</button>
+      <button id="nextBtn" class="icon" title="Prossimo cantante (N)">⏭</button>
       <span id="timeNow" class="time">0:00</span>
-      <div id="progress" title="Click to seek"><div id="progressFill"></div></div>
+      <div id="progress" title="Clicca per spostarti nella canzone"><div id="progressFill"></div></div>
       <span id="timeTotal" class="time">0:00</span>
-      <div class="offset" title="Lyrics timing. + shows lyrics earlier, − later. Keys: [ and ]">
+      <div class="offset" title="Sincronia del testo: + mostra il testo prima, − dopo. Tasti: [ e ]">
         <button id="offsetMinus" class="ghost small">−</button>
-        <span id="offsetLabel">sync 0.00s</span>
+        <span id="offsetLabel">sinc. 0.00s</span>
         <button id="offsetPlus" class="ghost small">+</button>
       </div>
     </footer>
 
     <!-- Singer queue drawer -->
-    <aside id="queuePanel" hidden aria-label="Singer queue">
+    <aside id="queuePanel" hidden aria-label="Coda dei cantanti">
       <div class="qp-head">
-        <h2>Singer queue</h2>
+        <h2>Coda dei cantanti</h2>
         <div>
-          <button id="guestsBtn" class="icon" title="Guests add songs from their phones">📱</button>
-          <button id="queueDetach" class="icon" title="Open in its own window">⧉</button>
-          <button id="queueClose" class="icon" title="Close">✕</button>
+          <button id="guestsBtn" class="icon" title="Gli ospiti aggiungono canzoni dal telefono">📱</button>
+          <button id="queueDetach" class="icon" title="Apri in una finestra separata">⧉</button>
+          <button id="queueClose" class="icon" title="Chiudi">✕</button>
         </div>
       </div>
       <div id="qpNow" class="qp-now" hidden></div>
       <ol id="queueList"></ol>
-      <p id="queueEmpty" class="qp-empty">The queue is empty.<br>Search for a song and pick who's singing it.</p>
+      <p id="queueEmpty" class="qp-empty">La coda è vuota.<br>Cerca una canzone e scegli chi la canta.</p>
       <div class="qp-foot">
-        <label class="check"><input id="fairToggle" type="checkbox"> Take turns fairly</label>
-        <button id="queueClear" class="ghost small">Clear queue</button>
+        <label class="check"><input id="fairToggle" type="checkbox"> Turni equi</label>
+        <button id="queueClear" class="ghost small">Svuota la coda</button>
       </div>
     </aside>
   </main>
@@ -175,7 +174,7 @@
   <!-- Who's singing? -->
   <dialog id="singerDialog">
     <form id="singerForm">
-      <h2>Who's singing?</h2>
+      <h2>Chi canta?</h2>
       <div class="sd-song">
         <img id="sdCover" alt="">
         <div>
@@ -183,19 +182,14 @@
           <div id="sdArtist" class="r-sub"></div>
         </div>
       </div>
-      <input id="singerInput" placeholder="Singer name" autocomplete="off" spellcheck="false" maxlength="40">
+      <input id="singerInput" placeholder="Nome di chi canta" autocomplete="off" spellcheck="false" maxlength="40">
       <div id="singerChips" class="chips"></div>
-      <div class="duet-row">
-        <label class="check"><input id="duetToggle" type="checkbox"> 🎤🎤 Duet</label>
-        <span id="duetHint" class="hint" hidden>This song has more than one artist. Sing it together?</span>
-      </div>
-      <input id="singer2Input" class="message-input" placeholder="Second singer's name" autocomplete="off" spellcheck="false" maxlength="40" hidden>
-      <input id="messageInput" class="message-input" placeholder="Message or dedication (optional)" autocomplete="off" maxlength="160">
-      <p class="hint">Shown and read aloud while everyone waits for this song.</p>
+      <input id="messageInput" class="message-input" placeholder="Messaggio o dedica (facoltativo)" autocomplete="off" maxlength="160">
+      <p class="hint">Viene mostrato e letto ad alta voce mentre si aspetta questa canzone.</p>
       <div class="sd-actions">
-        <button id="sdCancel" type="button" class="ghost">Cancel</button>
-        <button id="sdNow" type="button" value="now" class="ghost">Sing now</button>
-        <button id="sdQueue" type="submit" value="queue" class="primary">Add to queue</button>
+        <button id="sdCancel" type="button" class="ghost">Annulla</button>
+        <button id="sdNow" type="button" value="now" class="ghost">Canta subito</button>
+        <button id="sdQueue" type="submit" value="queue" class="primary">Aggiungi alla coda</button>
       </div>
     </form>
   </dialog>

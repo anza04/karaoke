@@ -1,10 +1,10 @@
 <!doctype html>
-<html lang="en">
+<html lang="it">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#0b0b10">
-  <title>Add a song · Karaoke</title>
+  <title>Aggiungi una canzone · Karaoke</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎤</text></svg>">
   <link rel="stylesheet" href="css/style.css">
   <script type="module" src="js/guest.js"></script>
@@ -12,65 +12,85 @@
 <body class="guest-page">
   <div id="bg"></div>
 
-  <main id="guest">
-    <header class="qw-head">
-      <h1>🎤 Add a song</h1>
-    </header>
+  <header class="g-top">
+    <div class="g-brand">🎤 Karaoke</div>
+    <button id="gChangeName" class="g-name" type="button" hidden></button>
+  </header>
 
-    <div id="gBanner" class="qw-banner" hidden></div>
+  <div id="gBanner" class="g-banner" role="status" hidden></div>
 
-    <section id="gNow" class="qw-card" hidden>
-      <div class="qw-label">Now singing</div>
-      <div class="qw-big" id="gNowSinger"></div>
-      <div class="r-sub" id="gNowSong"></div>
+  <!-- First visit: ask for a name once -->
+  <section id="gWelcome" class="g-welcome" hidden>
+    <div class="g-welcome-emoji">🎤</div>
+    <h1>Come ti chiami?</h1>
+    <p class="g-muted">Così sul maxischermo sanno chi chiamare a cantare.</p>
+    <form id="gNameForm" class="g-name-form">
+      <input id="gName" placeholder="Il tuo nome" autocomplete="nickname" maxlength="40" required enterkeyhint="done">
+      <button class="primary big" type="submit">Continua</button>
+    </form>
+  </section>
+
+  <main id="gMain" hidden>
+    <!-- Tab: search -->
+    <section id="tabSearch" class="g-tab">
+      <div class="g-searchbar">
+        <span aria-hidden="true">🔍</span>
+        <input id="gSearch" type="search" placeholder="Cerca un titolo o un artista" autocomplete="off" spellcheck="false" enterkeyhint="search" aria-label="Cerca una canzone">
+        <button id="gClear" type="button" aria-label="Cancella la ricerca" hidden>✕</button>
+      </div>
+      <p id="gStatus" class="g-status" hidden></p>
+      <ul id="gResults" class="g-list"></ul>
+      <div id="gSearchEmpty" class="g-empty">
+        <div class="g-empty-emoji">🎶</div>
+        <p>Cerca la canzone che vuoi cantare,<br>poi tocca <b>+</b> per metterla in coda.</p>
+      </div>
     </section>
 
-    <section id="gForm" class="g-form">
-      <label for="gName" class="g-label">Your name</label>
-      <input id="gName" placeholder="Who's singing?" autocomplete="nickname" maxlength="40">
-      <label for="gSearch" class="g-label">Song</label>
-      <input id="gSearch" type="search" placeholder="Search a song or artist…" autocomplete="off" spellcheck="false" enterkeyhint="search">
-      <p id="gStatus" class="hint" hidden></p>
-      <ul id="gResults" class="g-list g-results"></ul>
-    </section>
+    <!-- Tab: queue -->
+    <section id="tabQueue" class="g-tab" hidden>
+      <div id="gMineBox" hidden>
+        <h2 class="g-h2">Le tue canzoni</h2>
+        <div id="gMine" class="g-mine-list"></div>
+      </div>
 
-    <section id="gMineBox" hidden>
-      <h2 class="g-h2">Your songs</h2>
-      <ol id="gMine" class="g-list"></ol>
-    </section>
+      <div id="gNow" class="g-now" hidden>
+        <div class="g-label">Ora canta</div>
+        <div id="gNowSinger" class="g-now-singer"></div>
+        <div id="gNowSong" class="g-muted"></div>
+      </div>
 
-    <section>
-      <h2 class="g-h2">Up next</h2>
+      <h2 class="g-h2">In coda</h2>
       <ol id="gQueue" class="g-list"></ol>
-      <p id="gQueueEmpty" class="hint">Nobody is queued yet. Be the first!</p>
+      <div id="gQueueEmpty" class="g-empty">
+        <div class="g-empty-emoji">🙋</div>
+        <p>Ancora nessuno in coda.<br>Inizia tu!</p>
+      </div>
     </section>
   </main>
 
-  <dialog id="gDialog">
-    <form id="gDialogForm">
-      <h2>Add this song?</h2>
-      <div class="sd-song">
-        <img id="gdCover" alt="">
+  <nav id="gTabs" class="g-tabs" hidden>
+    <button type="button" data-tab="search" class="active"><span aria-hidden="true">🔍</span>Cerca</button>
+    <button type="button" data-tab="queue"><span aria-hidden="true">🎶</span>Coda<b id="gQueueBadge" class="g-tab-badge" hidden></b></button>
+  </nav>
+
+  <!-- Add a song: bottom sheet -->
+  <dialog id="gSheet" class="g-sheet">
+    <form id="gSheetForm">
+      <div class="g-sheet-grip" aria-hidden="true"></div>
+      <div class="g-sheet-song">
+        <img id="gsCover" alt="">
         <div>
-          <div id="gdTitle" class="r-title"></div>
-          <div id="gdArtist" class="r-sub"></div>
+          <div id="gsTitle" class="g-sheet-title"></div>
+          <div id="gsArtist" class="g-muted"></div>
         </div>
       </div>
-      <p class="hint">Singing as <b id="gdName"></b></p>
-      <div class="duet-row">
-        <label class="check"><input id="gdDuet" type="checkbox"> 🎤🎤 Duet</label>
-        <span id="gdDuetHint" class="hint" hidden>This song has more than one artist. Sing it together?</span>
-      </div>
-      <input id="gdSinger2" class="message-input" placeholder="Who's singing with you?" autocomplete="off" maxlength="40" hidden>
-      <input id="gdMessage" class="message-input" placeholder="Message or dedication (optional)" autocomplete="off" maxlength="160">
-      <p class="hint">Shown and read aloud before your song.</p>
-      <div class="sd-actions">
-        <button id="gdCancel" type="button" class="ghost">Cancel</button>
-        <button id="gdAdd" type="submit" class="primary">Add to queue</button>
-      </div>
+      <label for="gsMessage" class="g-label">Messaggio o dedica <span class="g-muted">(facoltativo)</span></label>
+      <textarea id="gsMessage" rows="2" maxlength="160" placeholder="Viene mostrato e letto ad alta voce prima della tua canzone"></textarea>
+      <button id="gsAdd" type="submit" class="primary big">Aggiungi alla coda</button>
+      <button id="gsCancel" type="button" class="ghost">Annulla</button>
     </form>
   </dialog>
 
-  <div id="toast" role="status" hidden></div>
+  <div id="toast" class="g-toast" role="status" hidden></div>
 </body>
 </html>

@@ -57,28 +57,19 @@ export function slimTrack(t) {
  * Where a new song goes with "take turns fairly" on: everyone's 1st song, then everyone's 2nd, and so on.
  * Each queued entry belongs to a "round" (how many earlier entries its singer already has);
  * the new entry goes before the first entry from a later round than its own.
- * Whoever is singing right now (`current`, a list of names) counts as already having had a turn.
- * A duet is a turn for both singers, and waits for whichever of them has sung more.
+ * Whoever is singing right now (`current`) counts as already having had a turn.
  */
-function fairIndex(names, current) {
-  const counts = new Map(current.map((n) => [norm(n), 1]));
-  const roundOf = (people) => Math.max(...people.map((n) => counts.get(norm(n)) ?? 0));
+function fairIndex(singer, current) {
+  const counts = new Map(current ? [[norm(current), 1]] : []);
   const rounds = items.map((e) => {
-    const people = singersOf(e);
-    const r = roundOf(people);
-    people.forEach((n) => counts.set(norm(n), (counts.get(norm(n)) ?? 0) + 1));
+    const r = counts.get(norm(e.singer)) ?? 0;
+    counts.set(norm(e.singer), r + 1);
     return r;
   });
-  const mine = roundOf(names);
+  const mine = counts.get(norm(singer)) ?? 0;
   const i = rounds.findIndex((r) => r > mine);
   return i === -1 ? items.length : i;
 }
-
-/** Everyone singing an entry: one name, or two for a duet. */
-export const singersOf = (entry) => (entry ? [entry.singer, entry.singer2].filter(Boolean) : []);
-
-/** "Anna" or "Anna & Ben". */
-export const singerLabel = (entry) => singersOf(entry).join(' & ');
 
 function rememberSinger(name) {
   singers = [name, ...singers.filter((s) => norm(s) !== norm(name))].slice(0, MAX_SINGERS);
@@ -105,21 +96,14 @@ export const queue = {
     return () => listeners.delete(fn);
   },
 
-  /**
-   * singer2: second name for a duet (optional).
-   * current: names of whoever is singing right now (a name, a list, or null).
-   */
-  add(track, singerName, { singer2 = '', front = false, current = null, message = '', requestId = null } = {}) {
-    const singer = singerName.trim() || 'Guest';
+  add(track, singerName, { front = false, current = null, message = '', requestId = null } = {}) {
+    const singer = singerName.trim() || 'Ospite';
     const entry = { id: crypto.randomUUID(), singer, track: slimTrack(track) };
-    const partner = singer2.trim().slice(0, 40);
-    if (partner && norm(partner) !== norm(singer)) entry.singer2 = partner;
     if (message.trim()) entry.message = message.trim().slice(0, 160);
     if (requestId) entry.requestId = requestId;  // added from a guest's phone
-    const now = [].concat(current ?? []).filter(Boolean);
-    const at = front ? 0 : fair ? fairIndex(singersOf(entry), now) : items.length;
+    const at = front ? 0 : fair ? fairIndex(singer, current) : items.length;
     items = [...items.slice(0, at), entry, ...items.slice(at)];
-    singersOf(entry).reverse().forEach(rememberSinger);
+    rememberSinger(singer);
     changed();
     return entry;
   },

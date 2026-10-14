@@ -20,7 +20,7 @@ let connecting = null;
  */
 export function connect() {
   if (fake()) return Promise.resolve(fake());
-  if (!CONFIG.firebase?.projectId) return Promise.reject(new Error('Firebase isn\'t set up yet (js/config.js).'));
+  if (!CONFIG.firebase?.projectId) return Promise.reject(new Error('Firebase non è ancora configurato (js/config.js).'));
   connecting ??= load().catch((e) => {
     connecting = null;
     throw e;
@@ -69,12 +69,12 @@ async function load() {
 export function explain(e) {
   const code = e?.code || '';
   if (code.includes('admin-restricted-operation') || code.includes('operation-not-allowed')) {
-    return 'Anonymous sign-in is turned off in Firebase (Authentication → Sign-in method → Anonymous).';
+    return 'L\'accesso anonimo è disattivato in Firebase (Authentication → Sign-in method → Anonymous).';
   }
   if (code.includes('unauthorized-domain') || code.includes('requests-from-referer')) {
-    return `This address isn't authorised in Firebase. Add ${location.hostname} under Authentication → Settings → Authorized domains.`;
+    return `Questo indirizzo non è autorizzato in Firebase. Aggiungi ${location.hostname} in Authentication → Settings → Authorized domains.`;
   }
-  if (code.includes('permission-denied')) return 'Firebase refused that (check that firestore.rules is published).';
-  if (code.includes('unavailable')) return 'Can\'t reach Firebase. Check the internet connection.';
-  return e?.message || 'Something went wrong with Firebase.';
+  if (code.includes('permission-denied')) return 'Firebase ha rifiutato l\'operazione (controlla che firestore.rules sia pubblicato).';
+  if (code.includes('unavailable')) return 'Impossibile raggiungere Firebase. Controlla la connessione a internet.';
+  return e?.message || 'Qualcosa è andato storto con Firebase.';
 }
