@@ -73,6 +73,7 @@
             <div id="trackArtist"></div>
           </div>
         </div>
+        <div id="duetLegend" class="duet-legend" hidden></div>
         <button id="upNext" hidden title="Open the queue"></button>
       </div>
       <div id="lyricsViewport"><div id="lyrics"></div></div>
@@ -184,6 +185,11 @@
       </div>
       <input id="singerInput" placeholder="Singer name" autocomplete="off" spellcheck="false" maxlength="40">
       <div id="singerChips" class="chips"></div>
+      <div class="duet-row">
+        <label class="check"><input id="duetToggle" type="checkbox"> 🎤🎤 Duet</label>
+        <span id="duetHint" class="hint" hidden>This song has more than one artist. Sing it together?</span>
+      </div>
+      <input id="singer2Input" class="message-input" placeholder="Second singer's name" autocomplete="off" spellcheck="false" maxlength="40" hidden>
       <input id="messageInput" class="message-input" placeholder="Message or dedication (optional)" autocomplete="off" maxlength="160">
       <p class="hint">Shown and read aloud while everyone waits for this song.</p>
       <div class="sd-actions">

@@ -1,7 +1,8 @@
 import * as auth from './auth.js';
 import * as sp from './spotify.js';
 import { findLyrics } from './lyrics.js';
-import { queue } from './queue.js';
+import { assignParts } from './duet.js';
+import { queue, singersOf, singerLabel } from './queue.js';
 import * as channel from './channel.js';
 import { createFaceSnow } from './facesnow.js';
 import * as party from './party.js';
@@ -87,10 +88,10 @@ async function startApp() {
   search = setupSearch({ onPick: (t) => openSingerDialog(t), onPlayNow: playNow, onError: handleError });
   openSingerDialog = setupSingerDialog({
     isIdle,
-    currentSinger: () => state.nowEntry?.singer,
+    currentSinger: () => singersOf(state.nowEntry),
     onAdded: (entry, action) => {
       if (action === 'now') startWithIntro(entry);
-      else toast(`Added for ${entry.singer} — #${queue.items.indexOf(entry) + 1} in the queue`);
+      else toast(`Added for ${singerLabel(entry)} — #${queue.items.indexOf(entry) + 1} in the queue`);
     },
   });
   faceSnow = createFaceSnow($('faceSnow'));
@@ -353,7 +354,7 @@ async function startEntry(entry) {
     // Put it back so nobody loses their turn.
     state.nowEntry = null;
     renderNowSinger();
-    queue.add(entry.track, entry.singer, { front: true, message: entry.message ?? '' });
+    queue.add(entry.track, entry.singer, { singer2: entry.singer2 ?? '', front: true, message: entry.message ?? '' });
   }
 }
 
@@ -432,7 +433,7 @@ function showIntermission() {
 
 function fillIntermission(entry) {
   state.im.entryId = entry.id;
-  $('imSinger').textContent = entry.singer;
+  $('imSinger').textContent = singerLabel(entry);
   $('imCover').src = (entry.track.album.images[1] || entry.track.album.images[0])?.url || '';
   $('imTitle').textContent = entry.track.name;
   $('imArtist').textContent = artistNames(entry.track);
@@ -472,11 +473,12 @@ function hideIntermission({ keepBackground = false } = {}) {
 function renderNowSinger() {
   const e = state.nowEntry;
   $('singerChip').hidden = !e;
-  $('singerChip').textContent = e ? `🎤 ${e.singer}` : '';
+  $('singerChip').textContent = e ? `🎤 ${singerLabel(e)}` : '';
+  applyParts();
   $('lvSinger').hidden = !e;
-  $('lvSinger').textContent = e ? `🎤 ${e.singer}` : '';
+  $('lvSinger').textContent = e ? `🎤 ${singerLabel(e)}` : '';
   $('qpNow').hidden = !e;
-  $('qpNow').textContent = e ? `🎤 Now singing: ${e.singer} — ${e.track.name}` : '';
+  $('qpNow').textContent = e ? `🎤 Now singing: ${singerLabel(e)} — ${e.track.name}` : '';
   broadcastStatus();
   party.publish();
 }
@@ -485,7 +487,7 @@ function renderQueue() {
   const next = queue.next;
   $('queueCount').textContent = queue.items.length;
   $('upNext').hidden = !next;
-  if (next) $('upNext').textContent = `Up next: ${next.singer} · ${next.track.name}`;
+  if (next) $('upNext').textContent = `Up next: ${singerLabel(next)} · ${next.track.name}`;
   renderQueueList({ onStart: startEntry });
 
   // Someone added a song while the QR screen was up (e.g. from their phone): on with the show.
@@ -581,7 +583,7 @@ async function setParty(action) {
     else {
       const hooks = {
         currentEntry: () => state.nowEntry,
-        onAdded: (entry) => toast(`📱 ${entry.singer} added “${entry.track.name}”`),
+        onAdded: (entry) => toast(`📱 ${singerLabel(entry)} added “${entry.track.name}”`),
       };
       if (action === 'renew') await party.renew(hooks);
       else await party.start(hooks);
@@ -725,6 +727,33 @@ function renderLyrics() {
     box.append(el);
   });
   state.lineEls = [...box.children];
+  applyParts();
+}
+
+/** Duets: colour each line by who sings it (first singer, second singer, or both) and show a legend. */
+function applyParts() {
+  const e = state.nowEntry;
+  const lines = state.lyrics?.lines;
+  const duet = !!(e?.singer2 && lines?.length && state.lyricsKey === trackKey(e.track) && state.lineEls.length);
+  const artists = (state.pb?.track ?? e?.track)?.artists?.map((a) => a.name) ?? [];
+  const parts = duet ? assignParts(lines, artists) : [];
+  state.lineEls.forEach((el, i) => {
+    el.classList.remove('part-a', 'part-b', 'part-both');
+    if (duet) el.classList.add(`part-${parts[i]}`);
+  });
+  $('lyrics').classList.toggle('duet', duet);
+
+  const legend = $('duetLegend');
+  legend.hidden = !duet;
+  legend.replaceChildren();
+  if (duet) {
+    for (const [cls, name] of [['part-a', e.singer], ['part-b', e.singer2], ['part-both', 'Both']]) {
+      const item = document.createElement('span');
+      item.className = cls;
+      item.textContent = name;
+      legend.append(item);
+    }
+  }
 }
 
 function activeLineIndex(lines, t) {

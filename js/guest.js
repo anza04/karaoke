@@ -39,6 +39,7 @@ function status(msg) {
 }
 
 const artists = (t) => (t.artists ?? []).map((a) => a.name).join(', ');
+const singers = (e) => (e.singer2 ? `${e.singer} & ${e.singer2}` : e.singer);
 
 function row({ image, title, sub, badge, mineRow }) {
   const li = document.createElement('li');
@@ -77,7 +78,7 @@ function render() {
   const now = party?.now;
   $('gNow').hidden = !now;
   if (now) {
-    $('gNowSinger').textContent = now.singer;
+    $('gNowSinger').textContent = singers(now);
     $('gNowSong').textContent = `${now.title} — ${now.artists}`;
   }
 
@@ -85,7 +86,7 @@ function render() {
   $('gQueueEmpty').hidden = q.length > 0;
   $('gQueue').replaceChildren(...q.map((e, i) => row({
     image: e.image,
-    title: e.singer,
+    title: singers(e),
     sub: `${e.title} — ${e.artists}`,
     badge: `#${i + 1}`,
     mineRow: mine.has(e.requestId),
@@ -167,6 +168,10 @@ function openDialog(track) {
   $('gdArtist').textContent = artists(track);
   $('gdName').textContent = name;
   $('gdMessage').value = '';
+  $('gdDuet').checked = false;
+  $('gdSinger2').value = '';
+  $('gdSinger2').hidden = true;
+  $('gdDuetHint').hidden = (track.artists?.length ?? 0) < 2;
   $('gDialog').showModal();
 }
 
@@ -177,13 +182,16 @@ async function addPending() {
   if (!track) return;
   $('gdAdd').disabled = true;
   try {
-    const id = await db.add(`parties/${partyId}/requests`, {
+    const request = {
       singer: $('gName').value.trim().slice(0, 40),
       message: $('gdMessage').value.trim().slice(0, 160),
       uri: track.uri,
       by: db.uid,
       createdAt: db.serverTime(),
-    });
+    };
+    const partner = $('gdDuet').checked ? $('gdSinger2').value.trim().slice(0, 40) : '';
+    if (partner) request.singer2 = partner;
+    const id = await db.add(`parties/${partyId}/requests`, request);
     mine.add(id);
     store.set(`karaoke.guest.mine.${partyId}`, JSON.stringify([...mine].slice(-30)));
     toast(`Sent! “${track.name}” will show up in the queue in a moment.`);
@@ -214,6 +222,10 @@ $('gSearch').addEventListener('input', () => {
 });
 $('gDialogForm').onsubmit = (e) => { e.preventDefault(); addPending(); };
 $('gdCancel').onclick = () => { pending = null; $('gDialog').close(); };
+$('gdDuet').onchange = () => {
+  $('gdSinger2').hidden = !$('gdDuet').checked;
+  if ($('gdDuet').checked) $('gdSinger2').focus();
+};
 
 (async () => {
   if (!partyId) return banner('This link is missing its party code. Scan the QR code on the karaoke screen again.');

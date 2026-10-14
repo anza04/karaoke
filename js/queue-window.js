@@ -1,7 +1,7 @@
 // Detached singer-queue window. It edits the shared queue directly (saved in localStorage)
 // and asks the main karaoke window, which owns playback, to start or skip songs.
 import * as auth from './auth.js';
-import { queue } from './queue.js';
+import { queue, singersOf, singerLabel } from './queue.js';
 import * as channel from './channel.js';
 import { $, toast, artistNames, setupSearch, setupSingerDialog, renderQueueList, bindQueueControls, setupGuestsDialog } from './ui.js';
 import * as party from './party.js';
@@ -47,14 +47,14 @@ function renderStatus() {
   if (im) {
     const entry = queue.find(im.entryId) ?? queue.next;
     $('qwNowLabel').textContent = im.held ? 'Up next · on hold' : `Up next in ${Math.max(im.remaining, 0)}s`;
-    $('qwNowSinger').textContent = entry?.singer ?? '';
+    $('qwNowSinger').textContent = singerLabel(entry);
     $('qwNowSong').textContent = entry ? `${entry.track.name} — ${artistNames(entry.track)}` : '';
     $('qwImHold').textContent = im.held ? 'Resume' : 'Hold';
     $('qwNowMessage').hidden = !entry?.message;
     $('qwNowMessage').textContent = entry?.message ? `“${entry.message}”` : '';
   } else if (s?.nowEntry) {
     $('qwNowLabel').textContent = s.track?.isPlaying === false ? 'Paused' : 'Now singing';
-    $('qwNowSinger').textContent = s.nowEntry.singer;
+    $('qwNowSinger').textContent = singerLabel(s.nowEntry);
     $('qwNowSong').textContent = `${s.nowEntry.track.name} — ${artistNames(s.nowEntry.track)}`;
   } else if (s?.track) {
     $('qwNowLabel').textContent = s.track.isPlaying ? 'Playing (no singer)' : 'Paused';
@@ -72,10 +72,10 @@ if (!auth.isLoggedIn()) {
 
 const openSingerDialog = setupSingerDialog({
   isIdle: () => mainAlive() && !!status?.idle,
-  currentSinger: () => (mainAlive() ? status?.nowEntry?.singer : null),
+  currentSinger: () => (mainAlive() ? singersOf(status?.nowEntry) : []),
   onAdded: (entry, action) => {
     if (action === 'now') askMain({ type: 'start', id: entry.id, intro: true });
-    else toast(`Added for ${entry.singer} — #${queue.items.indexOf(entry) + 1} in the queue`);
+    else toast(`Added for ${singerLabel(entry)} — #${queue.items.indexOf(entry) + 1} in the queue`);
   },
 });
 

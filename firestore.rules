@@ -34,12 +34,14 @@ service cloud.firestore {
       // A guest's song for the queue. The host adds it, then deletes the request.
       match /requests/{requestId} {
         allow create: if signedIn() && isOpen()
-          && request.resource.data.keys().hasOnly(['singer', 'message', 'uri', 'by', 'createdAt'])
+          && request.resource.data.keys().hasOnly(['singer', 'singer2', 'message', 'uri', 'by', 'createdAt'])
           && request.resource.data.by == request.auth.uid
           && request.resource.data.createdAt == request.time
           && request.resource.data.singer is string
           && request.resource.data.singer.size() > 0
           && request.resource.data.singer.size() <= 40
+          && (!('singer2' in request.resource.data)
+              || (request.resource.data.singer2 is string && request.resource.data.singer2.size() <= 40))
           && request.resource.data.message is string
           && request.resource.data.message.size() <= 160
           && request.resource.data.uri is string

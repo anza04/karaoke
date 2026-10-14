@@ -235,6 +235,36 @@ select option { background: var(--panel-solid); }
   filter: drop-shadow(0 4px 18px rgba(30, 215, 96, 0.25));
 }
 
+/* Duets: each line in its singer's colour; the active line sweeps in that colour too. */
+:root { --part-a: #3ddc84; --part-b: #ff6fb5; --part-both: #ffd166; }
+#lyrics.duet .line.part-a { --sung: var(--part-a); color: color-mix(in srgb, var(--part-a) 65%, white); }
+#lyrics.duet .line.part-b { --sung: var(--part-b); color: color-mix(in srgb, var(--part-b) 65%, white); }
+#lyrics.duet .line.part-both { --sung: var(--part-both); color: color-mix(in srgb, var(--part-both) 65%, white); }
+#lyrics.synced.duet .line.active span { filter: drop-shadow(0 4px 18px rgba(0, 0, 0, 0.35)); }
+.duet-legend {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  justify-content: center;
+  font-weight: 700;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 6px 14px;
+}
+.duet-legend span::before {
+  content: '';
+  display: inline-block;
+  width: 0.7em;
+  height: 0.7em;
+  border-radius: 50%;
+  margin-right: 6px;
+  background: currentColor;
+}
+.duet-legend .part-a { color: var(--part-a); }
+.duet-legend .part-b { color: var(--part-b); }
+.duet-legend .part-both { color: var(--part-both); }
+
 /* Unsynced lyrics: just let the user scroll. */
 #lyricsViewport:has(#lyrics.plain) { overflow: auto; mask-image: none; -webkit-mask-image: none; }
 #lyrics.plain { padding: 24px 0 80px; }
@@ -646,6 +676,8 @@ select option { background: var(--panel-solid); }
 .im-speech { display: flex; gap: 8px; align-items: center; justify-content: center; flex-wrap: wrap; }
 .small-select { font-size: 0.85rem; padding: 0.35em 0.8em; }
 .message-input { width: 100%; margin-top: 12px; }
+.duet-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
+.duet-row .hint { margin: 0; }
 .hint { margin: 6px 4px 0; color: var(--muted); font-size: 0.8rem; }
 
 /* ---------- detached queue window ---------- */

@@ -1,7 +1,7 @@
 // UI pieces shared by the main karaoke window and the detached queue window.
 // Both pages use the same element ids for these parts.
 import * as sp from './spotify.js';
-import { queue } from './queue.js';
+import { queue, singerLabel } from './queue.js';
 
 export const $ = (id) => document.getElementById(id);
 
@@ -127,6 +127,7 @@ export function setupSingerDialog({ isIdle, currentSinger, onAdded }) {
     dialog.close();
     if (!track || (action !== 'queue' && action !== 'now')) return;
     const entry = queue.add(track, $('singerInput').value, {
+      singer2: $('duetToggle').checked ? $('singer2Input').value : '',
       front: action === 'now',
       current: currentSinger(),
       message: $('messageInput').value,
@@ -154,7 +155,11 @@ export function setupSingerDialog({ isIdle, currentSinger, onAdded }) {
       pick.type = 'button';
       pick.textContent = name;
       // Fill in the name, then let them add a message (or just press Enter).
-      pick.onclick = () => { $('singerInput').value = name; $('messageInput').focus(); };
+      pick.onclick = () => {
+        const second = $('duetToggle').checked && $('singerInput').value.trim() && !$('singer2Input').value.trim();
+        $(second ? 'singer2Input' : 'singerInput').value = name;
+        $(!$('duetToggle').checked || second ? 'messageInput' : 'singer2Input').focus();
+      };
       const forget = document.createElement('button');
       forget.type = 'button';
       forget.className = 'chip-x';
@@ -167,6 +172,10 @@ export function setupSingerDialog({ isIdle, currentSinger, onAdded }) {
 
     $('singerInput').value = '';
     $('messageInput').value = '';
+    $('duetToggle').checked = false;
+    $('singer2Input').value = '';
+    $('singer2Input').hidden = true;
+    $('duetHint').hidden = (track.artists?.length ?? 0) < 2;
     dialog.showModal();
     $('singerInput').focus();
   }
@@ -177,6 +186,10 @@ export function setupSingerDialog({ isIdle, currentSinger, onAdded }) {
   $('singerForm').onsubmit = (e) => { e.preventDefault(); finish($('sdQueue').value); };
   $('sdNow').onclick = () => finish('now');
   $('sdCancel').onclick = () => finish('cancel');
+  $('duetToggle').onchange = () => {
+    $('singer2Input').hidden = !$('duetToggle').checked;
+    if ($('duetToggle').checked) $(($('singerInput').value.trim() ? 'singer2Input' : 'singerInput')).focus();
+  };
   dialog.addEventListener('cancel', () => { pending = null; }); // Esc
 
   return open;
@@ -202,7 +215,7 @@ export function renderQueueList({ onStart }) {
     text.className = 'q-text';
     const who = document.createElement('div');
     who.className = 'q-singer';
-    who.textContent = e.singer;
+    who.textContent = singerLabel(e);
     const what = document.createElement('div');
     what.className = 'r-sub';
     what.textContent = `${e.track.name} — ${artistNames(e.track)}`;

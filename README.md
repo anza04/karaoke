@@ -37,6 +37,7 @@ It opens <http://127.0.0.1:8888/>.
   - The small ▶ on a search result plays it immediately with no singer (solo mode).
 - Optionally add a **message or dedication** to the song. It's shown on the "up next" screen and read aloud by the computer's voice, in the browser's language. Turn reading off or on with the 🔊 button, and pick the reading speed (slow → fast) next to it; changing it replays the message. A song with a message always gets its "up next" moment, even with *Sing now*.
 - When a song ends, the app pauses Spotify (so it doesn't autoplay something random) and shows **Up next: *name*** over the next song's cover, with a 20-second countdown. *Hold* pauses the countdown, *Skip this song* drops it, *Start now* goes right away.
+- **Duets:** tick *🎤🎤 Duet* in the "Who's singing?" dialog (or on the phone page) and add a second name; for songs with more than one artist the dialog suggests it. The lyrics are split by colour: first singer green, second singer pink, both together yellow, with a legend at the top. If the lyrics name who sings each part (e.g. a verse headed by an artist's name, or "Both:") the app follows that; otherwise verses alternate between the two singers and the chorus (lines that keep coming back) is for both. A duet counts as a turn for both singers.
 - **Take turns fairly** (on by default): everyone gets their 1st song before anyone gets a 2nd, whatever order songs were added in. Turn it off for plain first-come-first-served.
 - The **Queue** panel lets you reorder (↑ ↓), remove (✕) or start (▶) any entry. ⏭ in the controls skips to the next singer. The queue survives a page reload.
 - **Detach the queue** with ⧉ in the queue panel. It opens in its own window, so you can put the lyrics full-screen on the TV and run the queue from the laptop screen. The queue window can search and add songs, reorder and remove them, and start, skip, hold or skip to the next singer. The two windows stay in sync instantly. Keep the main window open: it plays the music, and the queue window shows a warning if it's gone. If the browser blocks the pop-up, allow pop-ups for `127.0.0.1:8888`.
@@ -98,6 +99,7 @@ js/queue-window.js  the detached queue window
 js/ui.js          search box, "who's singing?" dialog, queue list (shared by both windows)
 js/channel.js     messages between the main and queue windows
 js/facesnow.js    the falling-faces effect
+js/duet.js        splits lyric lines between two duet singers
 js/party.js       host side of guest requests (runs in the main window)
 js/guest.js       the guests' phone page
 js/backend.js     small wrapper around Firebase (anonymous sign-in + Firestore)
