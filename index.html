@@ -57,6 +57,7 @@
         <button id="refreshDevices" class="icon" title="Refresh devices">⟳</button>
       </div>
       <button id="queueBtn" class="pill" title="Singer queue (Q)">👥 Queue <span id="queueCount" class="badge">0</span></button>
+      <button id="listenBtn" class="icon" title="Listen mode: album cover instead of lyrics (L)" aria-pressed="false">🎧</button>
       <button id="snowBtn" class="icon" title="Face snow (S)" aria-pressed="false">❄️</button>
       <button id="fullscreenBtn" class="icon" title="Fullscreen (F)">⛶</button>
       <button id="logoutBtn" class="icon" title="Log out">⏻</button>
@@ -75,6 +76,19 @@
         <button id="upNext" hidden title="Open the queue"></button>
       </div>
       <div id="lyricsViewport"><div id="lyrics"></div></div>
+
+      <!-- Listen mode: the album cover on a record player instead of the lyrics -->
+      <div id="listenView">
+        <div class="lv-art">
+          <div class="lv-vinyl"><div class="lv-disc"></div></div>
+          <img id="lvCover" class="lv-cover" alt="">
+        </div>
+        <div class="lv-text">
+          <div id="lvSinger" class="lv-singer" hidden></div>
+          <div id="lvTitle" class="lv-title"></div>
+          <div id="lvArtist" class="lv-artist"></div>
+        </div>
+      </div>
       <div id="status"></div>
 
       <!-- Between songs: who's up next -->

@@ -42,6 +42,7 @@ It opens <http://127.0.0.1:8888/>.
 - **Detach the queue** with ⧉ in the queue panel. It opens in its own window, so you can put the lyrics full-screen on the TV and run the queue from the laptop screen. The queue window can search and add songs, reorder and remove them, and start, skip, hold or skip to the next singer. The two windows stay in sync instantly. Keep the main window open: it plays the music, and the queue window shows a warning if it's gone. If the browser blocks the pop-up, allow pop-ups for `127.0.0.1:8888`.
 - Songs you start or skip from the Spotify app itself are picked up automatically.
 - **Click a lyric line** to jump to that part of the song.
+- **🎧 Listen mode** (top bar, or L): just listen. The screen shows the album cover on a spinning record player instead of the lyrics. Songs without lyrics (instrumentals, or none found) switch to the record player on their own. Spotify's own animated covers ("Canvas") aren't available to apps, so the animation is made from the cover.
 - **❄️ Face snow** (top bar, or S): round face pictures drift down behind the lyrics like snowflakes. Turning it off lets the ones already falling finish their fall. The pictures are `assets/faces/face1.png` … `face6.png`; replace them with any square images to change who's falling.
 - **Sync −/+**: if the lyrics run ahead or behind (common with Bluetooth speakers), nudge them. *+* shows lyrics earlier. Double-click the value to reset.
 
@@ -52,6 +53,7 @@ It opens <http://127.0.0.1:8888/>.
 | `[` / `]` | Lyrics later / earlier |
 | F | Fullscreen |
 | S | Face snow on / off |
+| L | Listen mode on / off |
 | Q | Open / close the singer queue |
 | N | Next singer |
 

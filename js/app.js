@@ -32,6 +32,8 @@ const state = {
   nowEntry: null,         // queue entry being sung right now (null in solo mode)
   endedPb: null,          // the playback whose end we've already handled
   im: { timer: null, remaining: 0, held: false, entryId: null },
+  listenMode: store.get('karaoke.listen') === '1',  // album cover instead of lyrics
+  lyricsLoading: false,
   queueWin: null,         // detached queue window, if open
 };
 const lyricsCache = new Map();
@@ -94,6 +96,7 @@ async function startApp() {
   faceSnow = createFaceSnow($('faceSnow'));
   setFaceSnow(store.get('karaoke.faceSnow') === '1');
   bindAppEvents();
+  setListenMode(state.listenMode);
   updateOffsetLabel();
   guestsDialog = setupGuestsDialog({
     getState: party.state,
@@ -470,6 +473,8 @@ function renderNowSinger() {
   const e = state.nowEntry;
   $('singerChip').hidden = !e;
   $('singerChip').textContent = e ? `🎤 ${e.singer}` : '';
+  $('lvSinger').hidden = !e;
+  $('lvSinger').textContent = e ? `🎤 ${e.singer}` : '';
   $('qpNow').hidden = !e;
   $('qpNow').textContent = e ? `🎤 Now singing: ${e.singer} — ${e.track.name}` : '';
   broadcastStatus();
@@ -670,6 +675,8 @@ async function loadLyrics(track) {
   state.lyrics = null;
   renderLyrics();
   setStatus('Looking for lyrics…');
+  state.lyricsLoading = true;
+  renderView();
 
   let result = lyricsCache.get(key);
   if (result === undefined) {
@@ -688,13 +695,10 @@ async function loadLyrics(track) {
   }
   if (state.lyricsKey !== key) return;  // the song changed while we were searching
 
+  state.lyricsLoading = false;
   state.lyrics = result;
   renderLyrics();
-  if (!result) setStatus('No lyrics found for this song.');
-  else if (result.kind === 'instrumental') setStatus('Instrumental — no singing needed 🎶');
-  else if (result.kind === 'plain') setStatus('Only unsynced lyrics exist for this song, so they won\'t scroll by themselves.');
-  else if (result.approximate) setStatus('These lyrics are timed for a slightly different version — use the sync buttons if they drift.');
-  else setStatus('');
+  renderView();
 }
 
 function renderLyrics() {
@@ -814,6 +818,7 @@ function renderTrack() {
     state.lyricsKey = null;
     renderLyrics();
     setBackground(null);
+    renderView();
     document.title = 'Karaoke';
     setStatus(pb ? 'Nothing singable is playing right now.' : 'Search for a song to start singing.');
     return;
@@ -823,6 +828,10 @@ function renderTrack() {
   if ($('intermission').hidden) setBackground(coverUrl(t));
   $('trackTitle').textContent = t.name;
   $('trackArtist').textContent = t.artists.map((a) => a.name).join(', ');
+  $('lvCover').src = images[0]?.url || '';
+  $('listenView').style.setProperty('--cover', images[0] ? `url("${images[0].url}")` : 'none');
+  $('lvTitle').textContent = t.name;
+  $('lvArtist').textContent = t.artists.map((a) => a.name).join(', ');
   document.title = `${t.name} · Karaoke`;
   loadLyrics(t);
 }
@@ -832,6 +841,7 @@ function updatePlayButton() {
   $('playPause').textContent = playing ? '❚❚' : '▶';
   $('playPause').setAttribute('aria-label', playing ? 'Pause' : 'Play');
   if (playing) hideIdle();
+  $('listenView').classList.toggle('playing', playing);
   broadcastStatus();
 }
 
@@ -905,6 +915,7 @@ function bindAppEvents() {
   $('offsetLabel').ondblclick = () => nudgeOffset(0);
   $('fullscreenBtn').onclick = toggleFullscreen;
   $('snowBtn').onclick = () => setFaceSnow(!faceSnow.running);
+  $('listenBtn').onclick = () => setListenMode(!state.listenMode);
   $('logoutBtn').onclick = () => {
     state.player?.disconnect();
     auth.logout();
@@ -919,11 +930,45 @@ function bindAppEvents() {
     else if (e.key === ']') nudgeOffset(OFFSET_STEP);
     else if (e.key === 'f' || e.key === 'F') toggleFullscreen();
     else if (e.key === 's' || e.key === 'S') setFaceSnow(!faceSnow.running);
+    else if (e.key === 'l' || e.key === 'L') setListenMode(!state.listenMode);
     else if (e.key === 'q' || e.key === 'Q') toggleQueuePanel();
     else if (e.key === 'n' || e.key === 'N') nextSinger();
     else if (e.key === 'Escape') toggleQueuePanel(false);
     else if (e.key === '/') { e.preventDefault(); $('searchInput').focus(); }
   });
+}
+
+/* ---------- listen mode: album cover instead of lyrics ---------- */
+
+function setListenMode(on) {
+  state.listenMode = on;
+  store.set('karaoke.listen', on ? '1' : '0');
+  $('listenBtn').setAttribute('aria-pressed', String(on));
+  $('listenBtn').classList.toggle('on', on);
+  $('listenBtn').title = on ? 'Back to karaoke: show the lyrics (L)' : 'Listen mode: album cover instead of lyrics (L)';
+  renderView();
+}
+
+/**
+ * Lyrics or record player? The record player shows in listen mode, and also on its own
+ * when a song has nothing to sing along to (instrumental, or no lyrics found).
+ */
+function renderView() {
+  const track = state.pb?.track;
+  const loaded = !!track && !state.lyricsLoading && state.lyricsKey === trackKey(track);
+  const nothingToSing = loaded && (!state.lyrics || state.lyrics.kind === 'instrumental');
+  const listening = !!track && (state.listenMode || nothingToSing);
+  $('stage').classList.toggle('listening', listening);
+  if (!loaded) return;
+
+  const L = state.lyrics;
+  if (state.listenMode) setStatus('');
+  else if (!L) setStatus('No lyrics found for this song. Just enjoy the music 🎧');
+  else if (L.kind === 'instrumental') setStatus('Instrumental — no singing needed 🎶');
+  else if (L.kind === 'plain') setStatus('Only unsynced lyrics exist for this song, so they won\'t scroll by themselves.');
+  else if (L.approximate) setStatus('These lyrics are timed for a slightly different version — use the sync buttons if they drift.');
+  else setStatus('');
+  if (!listening) state.activeIdx = -2;  // re-centre the lyrics when they come back
 }
 
 function setFaceSnow(on) {
