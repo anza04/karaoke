@@ -54,7 +54,7 @@
       </div>
 
       <div id="gNow" class="g-now" hidden>
-        <div class="g-label">Ora canta</div>
+        <div id="gNowLabel" class="g-label">Ora canta</div>
         <div id="gNowSinger" class="g-now-singer"></div>
         <div id="gNowSong" class="g-muted"></div>
       </div>
@@ -84,8 +84,15 @@
           <div id="gsArtist" class="g-muted"></div>
         </div>
       </div>
-      <label for="gsMessage" class="g-label">Messaggio o dedica <span class="g-muted">(facoltativo)</span></label>
-      <textarea id="gsMessage" rows="2" maxlength="160" placeholder="Viene mostrato e letto ad alta voce prima della tua canzone"></textarea>
+      <div class="mode-switch" role="radiogroup" aria-label="Cosa vuoi fare">
+        <button type="button" data-mode="sing" class="active" role="radio" aria-checked="true">🎤 Cantarla</button>
+        <button type="button" data-mode="listen" role="radio" aria-checked="false">🎧 Solo ascoltarla</button>
+      </div>
+      <p id="gsModeHint" class="g-muted g-mode-hint"></p>
+      <div id="gsMessageBox">
+        <label for="gsMessage" class="g-label">Messaggio o dedica <span class="g-muted">(facoltativo)</span></label>
+        <textarea id="gsMessage" rows="2" maxlength="160" placeholder="Viene mostrato e letto ad alta voce prima della tua canzone"></textarea>
+      </div>
       <button id="gsAdd" type="submit" class="primary big">Aggiungi alla coda</button>
       <button id="gsCancel" type="button" class="ghost">Annulla</button>
     </form>

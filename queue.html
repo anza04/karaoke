@@ -66,10 +66,14 @@
           <div id="sdArtist" class="r-sub"></div>
         </div>
       </div>
+      <div class="mode-switch" role="radiogroup" aria-label="Cosa volete fare">
+        <button type="button" data-mode="sing" class="active" role="radio" aria-checked="true">🎤 Cantarla</button>
+        <button type="button" data-mode="listen" role="radio" aria-checked="false">🎧 Solo ascoltarla</button>
+      </div>
       <input id="singerInput" placeholder="Nome di chi canta" autocomplete="off" spellcheck="false" maxlength="40">
       <div id="singerChips" class="chips"></div>
       <input id="messageInput" class="message-input" placeholder="Messaggio o dedica (facoltativo)" autocomplete="off" maxlength="160">
-      <p class="hint">Viene mostrato e letto ad alta voce mentre si aspetta questa canzone.</p>
+      <p id="sdHint" class="hint">Viene mostrato e letto ad alta voce mentre si aspetta questa canzone.</p>
       <div class="sd-actions">
         <button id="sdCancel" type="button" class="ghost">Annulla</button>
         <button id="sdNow" type="button" value="now" class="ghost">Canta subito</button>

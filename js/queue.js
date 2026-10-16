@@ -58,10 +58,12 @@ export function slimTrack(t) {
  * Each queued entry belongs to a "round" (how many earlier entries its singer already has);
  * the new entry goes before the first entry from a later round than its own.
  * Whoever is singing right now (`current`) counts as already having had a turn.
+ * Listen-only songs don't use anyone's turn and always come after the karaoke songs.
  */
 function fairIndex(singer, current) {
   const counts = new Map(current ? [[norm(current), 1]] : []);
   const rounds = items.map((e) => {
+    if (e.listen) return Infinity;
     const r = counts.get(norm(e.singer)) ?? 0;
     counts.set(norm(e.singer), r + 1);
     return r;
@@ -74,6 +76,9 @@ function fairIndex(singer, current) {
 function rememberSinger(name) {
   singers = [name, ...singers.filter((s) => norm(s) !== norm(name))].slice(0, MAX_SINGERS);
 }
+
+/** How an entry is shown: "Anna", or "🎧 Anna" for a listen-only song. */
+export const entryLabel = (e) => (e ? `${e.listen ? '🎧 ' : ''}${e.singer}` : '');
 
 export const queue = {
   get items() { return items; },
@@ -96,14 +101,19 @@ export const queue = {
     return () => listeners.delete(fn);
   },
 
-  add(track, singerName, { front = false, current = null, message = '', requestId = null } = {}) {
-    const singer = singerName.trim() || 'Ospite';
+  /** listen: just play the song (no lyrics, no countdown). It goes after every karaoke song. */
+  add(track, singerName, { front = false, current = null, message = '', requestId = null, listen = false } = {}) {
+    const name = singerName.trim();
+    const singer = name || (listen ? 'Solo ascolto' : 'Ospite');
     const entry = { id: crypto.randomUUID(), singer, track: slimTrack(track) };
-    if (message.trim()) entry.message = message.trim().slice(0, 160);
+    if (listen) entry.listen = true;
+    else if (message.trim()) entry.message = message.trim().slice(0, 160);
     if (requestId) entry.requestId = requestId;  // added from a guest's phone
-    const at = front ? 0 : fair ? fairIndex(singer, current) : items.length;
+    const firstListen = items.findIndex((e) => e.listen);
+    const beforeListen = firstListen === -1 ? items.length : firstListen;
+    const at = front ? 0 : listen ? items.length : fair ? fairIndex(singer, current) : beforeListen;
     items = [...items.slice(0, at), entry, ...items.slice(at)];
-    rememberSinger(singer);
+    if (name) rememberSinger(singer);
     changed();
     return entry;
   },

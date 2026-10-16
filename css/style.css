@@ -646,6 +646,19 @@ select option { background: var(--panel-solid); }
 .im-speech { display: flex; gap: 8px; align-items: center; justify-content: center; flex-wrap: wrap; }
 .small-select { font-size: 0.85rem; padding: 0.35em 0.8em; }
 .message-input { width: 100%; margin-top: 12px; }
+/* "Cantarla / Solo ascoltarla" segmented switch (singer dialog and phone page) */
+.mode-switch {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  padding: 4px;
+  margin: 0 0 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.07);
+}
+.mode-switch button { padding: 0.6em 0.8em; background: transparent; color: var(--muted); font-weight: 700; }
+.mode-switch button.active { background: var(--accent); color: var(--accent-ink); }
+.g-mode-hint { margin: -4px 4px 0; font-size: 0.88rem; line-height: 1.4; }
 .hint { margin: 6px 4px 0; color: var(--muted); font-size: 0.8rem; }
 
 /* ---------- detached queue window ---------- */

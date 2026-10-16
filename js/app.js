@@ -1,7 +1,7 @@
 import * as auth from './auth.js';
 import * as sp from './spotify.js';
 import { findLyrics } from './lyrics.js';
-import { queue } from './queue.js';
+import { queue, entryLabel } from './queue.js';
 import * as channel from './channel.js';
 import { createFaceSnow } from './facesnow.js';
 import * as party from './party.js';
@@ -33,6 +33,7 @@ const state = {
   endedPb: null,          // the playback whose end we've already handled
   im: { timer: null, remaining: 0, held: false, entryId: null },
   listenMode: store.get('karaoke.listen') === '1',  // album cover instead of lyrics
+  lyricsForced: false,    // lyrics shown on a listen-only song because someone asked for them
   lyricsLoading: false,
   queueWin: null,         // detached queue window, if open
 };
@@ -87,7 +88,7 @@ async function startApp() {
   search = setupSearch({ onPick: (t) => openSingerDialog(t), onPlayNow: playNow, onError: handleError });
   openSingerDialog = setupSingerDialog({
     isIdle,
-    currentSinger: () => state.nowEntry?.singer,
+    currentSinger: () => (state.nowEntry?.listen ? null : state.nowEntry?.singer),
     onAdded: (entry, action) => {
       if (action === 'now') startWithIntro(entry);
       else toast(`Aggiunta per ${entry.singer}: n. ${queue.items.indexOf(entry) + 1} in coda`);
@@ -347,13 +348,14 @@ async function startEntry(entry) {
   hideIntermission({ keepBackground: true });
   queue.remove(entry.id);
   state.nowEntry = entry;
+  state.lyricsForced = false;
   renderNowSinger();
   setStatus('');
   if (!(await playOnDevice(entry.track))) {
     // Put it back so nobody loses their turn.
     state.nowEntry = null;
     renderNowSinger();
-    queue.add(entry.track, entry.singer, { front: true, message: entry.message ?? '' });
+    queue.add(entry.track, entry.singer, { front: true, message: entry.message ?? '', listen: !!entry.listen });
   }
 }
 
@@ -362,8 +364,15 @@ async function startEntry(entry) {
  * show the "up next" screen first so the message gets its moment; otherwise start right away.
  */
 function startWithIntro(entry) {
-  if (entry.message && queue.next?.id === entry.id) nextSinger();
+  if (!entry.listen && entry.message && queue.next?.id === entry.id) nextSinger();
   else startEntry(entry);
+}
+
+/** What comes next: a listen-only song plays straight away, a karaoke song gets its "up next" countdown. */
+function playNextOrIntro() {
+  const next = queue.next;
+  if (next?.listen) startEntry(next);
+  else showIntermission();
 }
 
 /**
@@ -396,7 +405,7 @@ async function onSongEnded() {
   if (state.pb) Object.assign(state.pb, { progressMs: currentPos(), at: performance.now(), isPlaying: false });
   hold();
   updatePlayButton();
-  if (queue.next) showIntermission();
+  if (queue.next) playNextOrIntro();
   else if (!maybeShowIdle()) setStatus('Finito! 🎉 Cerca altre canzoni per continuare la festa.');
 }
 
@@ -411,7 +420,7 @@ async function nextSinger() {
     hold();
     updatePlayButton();
   }
-  showIntermission();
+  playNextOrIntro();
 }
 
 function showIntermission() {
@@ -472,11 +481,13 @@ function hideIntermission({ keepBackground = false } = {}) {
 function renderNowSinger() {
   const e = state.nowEntry;
   $('singerChip').hidden = !e;
-  $('singerChip').textContent = e ? `🎤 ${e.singer}` : '';
+  $('singerChip').textContent = e ? (e.listen ? `🎧 ${e.singer}` : `🎤 ${e.singer}`) : '';
   $('lvSinger').hidden = !e;
-  $('lvSinger').textContent = e ? `🎤 ${e.singer}` : '';
+  $('lvSinger').textContent = e ? (e.listen ? `🎧 Scelta da ${e.singer}` : `🎤 ${e.singer}`) : '';
+  if (e?.listen && e.singer === 'Solo ascolto') $('lvSinger').hidden = true;
   $('qpNow').hidden = !e;
-  $('qpNow').textContent = e ? `🎤 Ora canta: ${e.singer} — ${e.track.name}` : '';
+  $('qpNow').textContent = e ? (e.listen ? `🎧 In ascolto: ${e.track.name}` : `🎤 Ora canta: ${e.singer} — ${e.track.name}`) : '';
+  renderView();
   broadcastStatus();
   party.publish();
 }
@@ -485,18 +496,19 @@ function renderQueue() {
   const next = queue.next;
   $('queueCount').textContent = queue.items.length;
   $('upNext').hidden = !next;
-  if (next) $('upNext').textContent = `Il prossimo: ${next.singer} · ${next.track.name}`;
+  if (next) $('upNext').textContent = `Il prossimo: ${entryLabel(next)} · ${next.track.name}`;
   renderQueueList({ onStart: startEntry });
 
   // Someone added a song while the QR screen was up (e.g. from their phone): on with the show.
   if (!$('idleScreen').hidden && next) {
     hideIdle();
-    showIntermission();
+    playNextOrIntro();
   }
 
   // Keep the intermission screen in sync if the queue changed under it.
   if (!$('intermission').hidden) {
     if (!next) hideIntermission();
+    else if (next.listen) startEntry(next);  // only listen-only songs left: no countdown needed
     else if (next.id !== state.im.entryId) fillIntermission(next);
   }
 }
@@ -511,7 +523,7 @@ function intermissionStart() {
 
 function intermissionSkip() {
   queue.shift();
-  if (queue.next) showIntermission();
+  if (queue.next) playNextOrIntro();
   else {
     hideIntermission();
     if (!maybeShowIdle()) setStatus('La coda è vuota: cerca una canzone per aggiungerne una.');
@@ -915,7 +927,7 @@ function bindAppEvents() {
   $('offsetLabel').ondblclick = () => nudgeOffset(0);
   $('fullscreenBtn').onclick = toggleFullscreen;
   $('snowBtn').onclick = () => setFaceSnow(!faceSnow.running);
-  $('listenBtn').onclick = () => setListenMode(!state.listenMode);
+  $('listenBtn').onclick = toggleListen;
   $('logoutBtn').onclick = () => {
     state.player?.disconnect();
     auth.logout();
@@ -930,7 +942,7 @@ function bindAppEvents() {
     else if (e.key === ']') nudgeOffset(OFFSET_STEP);
     else if (e.key === 'f' || e.key === 'F') toggleFullscreen();
     else if (e.key === 's' || e.key === 'S') setFaceSnow(!faceSnow.running);
-    else if (e.key === 'l' || e.key === 'L') setListenMode(!state.listenMode);
+    else if (e.key === 'l' || e.key === 'L') toggleListen();
     else if (e.key === 'q' || e.key === 'Q') toggleQueuePanel();
     else if (e.key === 'n' || e.key === 'N') nextSinger();
     else if (e.key === 'Escape') toggleQueuePanel(false);
@@ -943,10 +955,23 @@ function bindAppEvents() {
 function setListenMode(on) {
   state.listenMode = on;
   store.set('karaoke.listen', on ? '1' : '0');
-  $('listenBtn').setAttribute('aria-pressed', String(on));
-  $('listenBtn').classList.toggle('on', on);
-  $('listenBtn').title = on ? 'Torna al karaoke: mostra il testo (L)' : 'Modalità ascolto: copertina al posto del testo (L)';
   renderView();
+}
+
+/** A listen-only song from the queue is playing and nobody asked for its lyrics yet. */
+function songListenActive() {
+  const e = state.nowEntry;
+  return !!e?.listen && !state.lyricsForced && trackKey(e.track) === trackKey(state.pb?.track);
+}
+
+/** 🎧 / L: on a listen-only song, show its lyrics; otherwise switch listen mode on or off for every song. */
+function toggleListen() {
+  if (songListenActive()) {
+    state.lyricsForced = true;
+    renderView();
+  } else {
+    setListenMode(!state.listenMode);
+  }
 }
 
 /**
@@ -957,12 +982,19 @@ function renderView() {
   const track = state.pb?.track;
   const loaded = !!track && !state.lyricsLoading && state.lyricsKey === trackKey(track);
   const nothingToSing = loaded && (!state.lyrics || state.lyrics.kind === 'instrumental');
-  const listening = !!track && (state.listenMode || nothingToSing);
+  const songListen = songListenActive();
+  const listening = !!track && (state.listenMode || songListen || nothingToSing);
   $('stage').classList.toggle('listening', listening);
+  const pressed = state.listenMode || songListen;
+  $('listenBtn').setAttribute('aria-pressed', String(pressed));
+  $('listenBtn').classList.toggle('on', pressed);
+  $('listenBtn').title = songListen
+    ? 'Mostra il testo di questa canzone (L)'
+    : state.listenMode ? 'Torna al karaoke: mostra il testo (L)' : 'Modalità ascolto: copertina al posto del testo (L)';
   if (!loaded) return;
 
   const L = state.lyrics;
-  if (state.listenMode) setStatus('');
+  if (state.listenMode || songListen) setStatus('');
   else if (!L) setStatus('Nessun testo trovato per questa canzone. Goditi la musica 🎧');
   else if (L.kind === 'instrumental') setStatus('Brano strumentale: niente da cantare 🎶');
   else if (L.kind === 'plain') setStatus('Per questa canzone c\'è solo il testo non sincronizzato, quindi non scorrerà da solo.');

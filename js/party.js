@@ -110,7 +110,8 @@ async function handleRequest({ id, data }) {
     const track = trackCache.get(data.uri) ?? (await sp.getTrack(trackId));
     const entry = queue.add(track, String(data.singer ?? '').slice(0, 40), {
       message: String(data.message ?? '').slice(0, 160),
-      current: hooks.currentEntry()?.singer,
+      listen: data.listen === true,
+      current: hooks.currentEntry()?.listen ? null : hooks.currentEntry()?.singer,
       requestId: id,
     });
     hooks.onAdded(entry);
@@ -149,6 +150,7 @@ function publishNow() {
   if (!db || !partyId || !isOn()) return;
   const brief = (e) => ({
     singer: e.singer,
+    listen: !!e.listen,
     title: e.track.name,
     artists: e.track.artists.map((a) => a.name).join(', '),
     image: e.track.album.images.at(-1)?.url ?? null,

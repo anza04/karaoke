@@ -1,7 +1,7 @@
 // Detached singer-queue window. It edits the shared queue directly (saved in localStorage)
 // and asks the main karaoke window, which owns playback, to start or skip songs.
 import * as auth from './auth.js';
-import { queue } from './queue.js';
+import { queue, entryLabel } from './queue.js';
 import * as channel from './channel.js';
 import { $, toast, artistNames, setupSearch, setupSingerDialog, renderQueueList, bindQueueControls, setupGuestsDialog } from './ui.js';
 import * as party from './party.js';
@@ -53,8 +53,8 @@ function renderStatus() {
     $('qwNowMessage').hidden = !entry?.message;
     $('qwNowMessage').textContent = entry?.message ? `“${entry.message}”` : '';
   } else if (s?.nowEntry) {
-    $('qwNowLabel').textContent = s.track?.isPlaying === false ? 'In pausa' : 'Ora canta';
-    $('qwNowSinger').textContent = s.nowEntry.singer;
+    $('qwNowLabel').textContent = s.track?.isPlaying === false ? 'In pausa' : s.nowEntry.listen ? 'In ascolto' : 'Ora canta';
+    $('qwNowSinger').textContent = entryLabel(s.nowEntry);
     $('qwNowSong').textContent = `${s.nowEntry.track.name} — ${artistNames(s.nowEntry.track)}`;
   } else if (s?.track) {
     $('qwNowLabel').textContent = s.track.isPlaying ? 'In riproduzione (senza cantante)' : 'In pausa';
@@ -72,7 +72,7 @@ if (!auth.isLoggedIn()) {
 
 const openSingerDialog = setupSingerDialog({
   isIdle: () => mainAlive() && !!status?.idle,
-  currentSinger: () => (mainAlive() ? status?.nowEntry?.singer : null),
+  currentSinger: () => (mainAlive() && !status?.nowEntry?.listen ? status?.nowEntry?.singer : null),
   onAdded: (entry, action) => {
     if (action === 'now') askMain({ type: 'start', id: entry.id, intro: true });
     else toast(`Aggiunta per ${entry.singer}: n. ${queue.items.indexOf(entry) + 1} in coda`);

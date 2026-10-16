@@ -15,6 +15,7 @@ const store = {
 let db = null;
 let party = null;
 let pendingTrack = null;       // track waiting in the add sheet
+let mode = 'sing';             // 'sing' (karaoke) or 'listen' (just play it)
 let searchSeq = 0;
 let searchTimer;
 const mineKey = `karaoke.guest.mine.${partyId}`;
@@ -99,18 +100,22 @@ function render() {
   $('gNow').hidden = !now;
   $('gNow').classList.toggle('me', nowIsMe);
   if (now) {
-    $('gNowSinger').textContent = nowIsMe ? `Tocca a te, ${now.singer}! 🎤` : now.singer;
+    $('gNowLabel').textContent = now.listen ? 'In ascolto' : 'Ora canta';
+    $('gNowSinger').textContent = now.listen
+      ? (nowIsMe ? 'La tua canzone è in onda 🎧' : `🎧 ${now.title}`)
+      : nowIsMe ? `Tocca a te, ${now.singer}! 🎤` : now.singer;
     $('gNowSong').textContent = `${now.title} — ${now.artists}`;
   }
 
   // The queue
   const q = party?.queue ?? [];
   for (const e of q) if (e.requestId) sent.delete(e.requestId);
+  if (now?.requestId) sent.delete(now.requestId);  // went straight to playing (e.g. a listen-only song)
   $('gQueueEmpty').hidden = q.length > 0;
   $('gQueue').replaceChildren(...q.map((e, i) => {
     const li = el('li', mine.has(e.requestId) ? 'mine' : '');
     const text = el('div', 'g-text');
-    text.append(el('div', 'g-title', e.singer), el('div', 'g-muted', `${e.title} — ${e.artists}`));
+    text.append(el('div', 'g-title', `${e.listen ? '🎧 ' : ''}${e.singer}`), el('div', 'g-muted', `${e.title} — ${e.artists}`));
     li.append(el('span', 'g-pos', `${i + 1}`), cover(e.image), text);
     return li;
   }));
@@ -123,7 +128,9 @@ function render() {
     const text = el('div', 'g-text');
     text.append(
       el('div', 'g-title', e.title),
-      el('div', 'g-muted', i === 0 ? 'Tocca a te! Preparati 🎤' : `Prima di te: ${i} ${i === 1 ? 'cantante' : 'cantanti'}`),
+      el('div', 'g-muted', e.listen
+        ? (i === 0 ? '🎧 Parte dopo la canzone in corso' : `🎧 Da ascoltare · prima ci sono ${i} ${i === 1 ? 'canzone' : 'canzoni'}`)
+        : i === 0 ? 'Tocca a te! Preparati 🎤' : `Prima di te: ${i} ${i === 1 ? 'cantante' : 'cantanti'}`),
     );
     card.append(cover(e.image), text, el('div', 'g-mine-pos', `#${i + 1}`));
     cards.push(card);
@@ -230,7 +237,21 @@ function openSheet(track) {
   $('gsTitle').textContent = track.name;
   $('gsArtist').textContent = artists(track);
   $('gsMessage').value = '';
+  setMode('sing');
   $('gSheet').showModal();
+}
+
+/** "Cantarla" or "Solo ascoltarla". */
+function setMode(m) {
+  mode = m;
+  for (const b of $('gSheet').querySelectorAll('.mode-switch button')) {
+    b.classList.toggle('active', b.dataset.mode === m);
+    b.setAttribute('aria-checked', String(b.dataset.mode === m));
+  }
+  $('gsMessageBox').hidden = m === 'listen';
+  $('gsModeHint').textContent = m === 'listen'
+    ? 'Parte appena finisce la canzone in corso, senza testo. Le canzoni da cantare hanno la precedenza.'
+    : 'Quando tocca a te ti chiamiamo sul maxischermo e il testo scorre a tempo.';
 }
 
 function closeSheet() {
@@ -244,13 +265,15 @@ async function addPending() {
   $('gsAdd').disabled = true;
   $('gsAdd').textContent = 'Invio…';
   try {
-    const id = await db.add(`parties/${partyId}/requests`, {
+    const request = {
       singer: myName().slice(0, 40),
-      message: $('gsMessage').value.trim().slice(0, 160),
+      message: mode === 'listen' ? '' : $('gsMessage').value.trim().slice(0, 160),
       uri: track.uri,
       by: db.uid,
       createdAt: db.serverTime(),
-    });
+    };
+    if (mode === 'listen') request.listen = true;  // only sent when needed, so karaoke requests work with older rules
+    const id = await db.add(`parties/${partyId}/requests`, request);
     mine.add(id);
     store.set(mineKey, JSON.stringify([...mine].slice(-30)));
     sent.set(id, { title: track.name, image: track.album?.images?.at(-1)?.url, at: Date.now() });
@@ -299,6 +322,7 @@ $('gSearch').addEventListener('keydown', (e) => {
 $('gClear').onclick = () => { clearSearch(); $('gSearch').focus(); };
 $('gSheetForm').onsubmit = (e) => { e.preventDefault(); addPending(); };
 $('gsCancel').onclick = closeSheet;
+for (const b of $('gSheet').querySelectorAll('.mode-switch button')) b.onclick = () => setMode(b.dataset.mode);
 $('gSheet').addEventListener('click', (e) => { if (e.target === $('gSheet')) closeSheet(); });  // tap outside
 
 if (myName()) showMain();

@@ -1,7 +1,7 @@
 // UI pieces shared by the main karaoke window and the detached queue window.
 // Both pages use the same element ids for these parts.
 import * as sp from './spotify.js';
-import { queue } from './queue.js';
+import { queue, entryLabel } from './queue.js';
 
 export const $ = (id) => document.getElementById(id);
 
@@ -120,16 +120,37 @@ export function setupSearch({ onPick, onPlayNow, onError }) {
 export function setupSingerDialog({ isIdle, currentSinger, onAdded }) {
   const dialog = $('singerDialog');
   let pending = null;
+  let mode = 'sing';
+  let idle = false;
+
+  /** "Cantarla" or "Solo ascoltarla": labels, and the message only makes sense for karaoke. */
+  function setMode(m) {
+    mode = m;
+    for (const b of dialog.querySelectorAll('.mode-switch button')) {
+      b.classList.toggle('active', b.dataset.mode === m);
+      b.setAttribute('aria-checked', String(b.dataset.mode === m));
+    }
+    const listen = m === 'listen';
+    $('singerInput').placeholder = listen ? 'Chi l\'ha scelta? (facoltativo)' : 'Nome di chi canta';
+    $('messageInput').hidden = listen;
+    $('sdHint').textContent = listen
+      ? 'Parte appena finisce la canzone in corso, senza testo. Le canzoni da cantare hanno la precedenza.'
+      : 'Viene mostrato e letto ad alta voce mentre si aspetta questa canzone.';
+    $('sdQueue').textContent = idle ? (listen ? 'Fai partire' : 'Inizia a cantare') : 'Aggiungi alla coda';
+    $('sdNow').textContent = listen ? 'Fai partire subito' : 'Canta subito';
+  }
 
   function finish(action) {
     const track = pending;
     pending = null;
     dialog.close();
     if (!track || (action !== 'queue' && action !== 'now')) return;
+    const listen = mode === 'listen';
     const entry = queue.add(track, $('singerInput').value, {
       front: action === 'now',
       current: currentSinger(),
-      message: $('messageInput').value,
+      message: listen ? '' : $('messageInput').value,
+      listen,
     });
     onAdded(entry, action);
   }
@@ -140,8 +161,7 @@ export function setupSingerDialog({ isIdle, currentSinger, onAdded }) {
     $('sdTitle').textContent = track.name;
     $('sdArtist').textContent = artistNames(track);
 
-    const idle = isIdle();
-    $('sdQueue').textContent = idle ? 'Inizia a cantare' : 'Aggiungi alla coda';
+    idle = isIdle();
     $('sdQueue').value = idle ? 'now' : 'queue';
     $('sdNow').hidden = idle;
 
@@ -167,6 +187,7 @@ export function setupSingerDialog({ isIdle, currentSinger, onAdded }) {
 
     $('singerInput').value = '';
     $('messageInput').value = '';
+    setMode('sing');
     dialog.showModal();
     $('singerInput').focus();
   }
@@ -177,6 +198,7 @@ export function setupSingerDialog({ isIdle, currentSinger, onAdded }) {
   $('singerForm').onsubmit = (e) => { e.preventDefault(); finish($('sdQueue').value); };
   $('sdNow').onclick = () => finish('now');
   $('sdCancel').onclick = () => finish('cancel');
+  for (const b of dialog.querySelectorAll('.mode-switch button')) b.onclick = () => setMode(b.dataset.mode);
   dialog.addEventListener('cancel', () => { pending = null; }); // Esc
 
   return open;
@@ -202,7 +224,7 @@ export function renderQueueList({ onStart }) {
     text.className = 'q-text';
     const who = document.createElement('div');
     who.className = 'q-singer';
-    who.textContent = e.singer;
+    who.textContent = entryLabel(e);
     const what = document.createElement('div');
     what.className = 'r-sub';
     what.textContent = `${e.track.name} — ${artistNames(e.track)}`;
