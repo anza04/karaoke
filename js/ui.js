@@ -339,6 +339,75 @@ export function setupGuestsDialog({ getState, onToggle, onRenew }) {
   };
 }
 
+/* ---------- "Fallback playlist" dialog: random songs while the queue is empty ---------- */
+
+/**
+ * getState(): { id, name } | null, as saved by app.js.
+ * onSave(input): parses/validates a playlist link and saves it; may reject with a message.
+ * onClear(): removes the saved playlist. Both may return promises; the dialog re-renders when they settle.
+ * Returns { open, render }.
+ */
+export function setupFallbackDialog({ getState, onSave, onClear }) {
+  const dialog = document.createElement('dialog');
+  dialog.id = 'fallbackDialog';
+  dialog.innerHTML = `
+    <h2>🔀 Playlist di riserva</h2>
+    <p class="hint">Quando la coda è vuota, suona canzoni a caso da questa playlist Spotify invece di restare in silenzio.</p>
+    <p class="fb-current"></p>
+    <form class="fb-form">
+      <input class="fb-input" placeholder="Link, URI o ID della playlist Spotify" autocomplete="off" spellcheck="false">
+      <p class="qw-banner fb-error" hidden></p>
+      <div class="sd-actions">
+        <button type="button" class="ghost small fb-clear">Rimuovi</button>
+        <button type="button" class="ghost fb-close">Chiudi</button>
+        <button class="primary fb-save">Salva</button>
+      </div>
+    </form>`;
+  document.body.append(dialog);
+  const q = (sel) => dialog.querySelector(sel);
+  let busy = false;
+
+  function render() {
+    const s = getState();
+    q('.fb-current').textContent = s ? `Playlist attuale: ${s.name}` : 'Nessuna playlist impostata.';
+    q('.fb-clear').hidden = !s;
+    q('.fb-save').disabled = busy;
+    q('.fb-save').textContent = busy ? '…' : 'Salva';
+  }
+
+  async function run(fn) {
+    busy = true;
+    render();
+    try {
+      await fn();
+      q('.fb-error').hidden = true;
+    } catch (e) {
+      q('.fb-error').hidden = false;
+      q('.fb-error').textContent = e.message;
+    }
+    busy = false;
+    render();
+  }
+
+  q('.fb-form').onsubmit = (e) => {
+    e.preventDefault();
+    const value = q('.fb-input').value.trim();
+    if (value) run(() => onSave(value).then(() => { q('.fb-input').value = ''; }));
+  };
+  q('.fb-clear').onclick = () => run(onClear);
+  q('.fb-close').onclick = () => dialog.close();
+
+  return {
+    render,
+    open() {
+      q('.fb-input').value = '';
+      q('.fb-error').hidden = true;
+      render();
+      dialog.showModal();
+    },
+  };
+}
+
 export function bindQueueControls() {
   $('fairToggle').onchange = (e) => queue.setFair(e.target.checked);
   $('queueClear').onclick = () => { if (confirm('Rimuovere tutte le canzoni dalla coda?')) queue.clear(); };

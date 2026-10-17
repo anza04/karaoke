@@ -5,7 +5,7 @@ import { queue, entryLabel } from './queue.js';
 import * as channel from './channel.js';
 import { createFaceSnow } from './facesnow.js';
 import * as party from './party.js';
-import { $, fmt, toast, artistNames, setupSearch, setupSingerDialog, renderQueueList, bindQueueControls, setupGuestsDialog, qrDataUrl } from './ui.js';
+import { $, fmt, toast, artistNames, setupSearch, setupSingerDialog, renderQueueList, bindQueueControls, setupGuestsDialog, setupFallbackDialog, qrDataUrl } from './ui.js';
 
 const { store } = auth;
 
@@ -36,12 +36,19 @@ const state = {
   lyricsForced: false,    // lyrics shown on a listen-only song because someone asked for them
   lyricsLoading: false,
   queueWin: null,         // detached queue window, if open
+  fallbackPlaylist: loadFallbackPlaylist(),  // { id, name } | null — random songs while the queue is empty
+  fallbackTracks: null,       // cached tracks for fallbackPlaylist.id
+  fallbackTracksFor: null,
+  fallbackActive: false,      // a fallback track (not a queued singer) is playing right now
+  fallbackWarned: false,      // already told the user the fallback playlist is broken, don't repeat every song
+  lastFallbackKey: null,
 };
 const lyricsCache = new Map();
 let search;           // set up in startApp()
 let openSingerDialog; // set up in startApp()
 let faceSnow;         // set up in startApp()
 let guestsDialog;     // set up in startApp()
+let fallbackDialog;   // set up in startApp()
 
 /* ---------- boot ---------- */
 
@@ -104,6 +111,11 @@ async function startApp() {
     onToggle: (on) => setParty(on ? 'on' : 'off'),
     onRenew: () => setParty('renew'),
   });
+  fallbackDialog = setupFallbackDialog({
+    getState: () => state.fallbackPlaylist,
+    onSave: setFallbackPlaylist,
+    onClear: clearFallbackPlaylist,
+  });
   queue.subscribe(renderQueue);
   queue.subscribe(party.publish);
   renderQueue();
@@ -134,7 +146,7 @@ async function startApp() {
 
   await refreshDevices();
   await poll();
-  maybeShowIdle();  // start of the session: invite people to add songs
+  if (!(await playFallback())) maybeShowIdle();  // start of the session: play the fallback playlist, or invite people to add songs
   setInterval(poll, POLL_MS);
   requestAnimationFrame(frame);
 }
@@ -296,6 +308,7 @@ async function playOnDevice(track) {
 async function playNow(track) {
   hideIntermission();
   state.nowEntry = null;
+  state.fallbackActive = false;
   renderNowSinger();
   await playOnDevice(track);
 }
@@ -349,6 +362,7 @@ async function startEntry(entry) {
   queue.remove(entry.id);
   state.nowEntry = entry;
   state.lyricsForced = false;
+  state.fallbackActive = false;
   renderNowSinger();
   setStatus('');
   if (!(await playOnDevice(entry.track))) {
@@ -382,7 +396,7 @@ function playNextOrIntro() {
 function checkSongEnd() {
   const pb = state.pb;
   const dur = pb?.track?.duration_ms;
-  if (!pb?.isPlaying || !dur || state.endedPb === pb || !(state.nowEntry || queue.next)) return;
+  if (!pb?.isPlaying || !dur || state.endedPb === pb || !(state.nowEntry || queue.next || state.fallbackActive)) return;
   if (currentPos() >= dur - END_MARGIN_MS) {
     state.endedPb = pb;
     onSongEnded();
@@ -390,7 +404,7 @@ function checkSongEnd() {
 }
 
 function endedBetweenPolls(prev, next) {
-  if (!prev.isPlaying || !prev.track || !(state.nowEntry || queue.next)) return false;
+  if (!prev.isPlaying || !prev.track || !(state.nowEntry || queue.next || state.fallbackActive)) return false;
   const nearEnd = prev.track.duration_ms - currentPos() < 3000;  // currentPos() still describes prev here
   const stoppedOrMovedOn = !next || !next.isPlaying || trackKey(next.track) !== trackKey(prev.track);
   return nearEnd && stoppedOrMovedOn;
@@ -399,6 +413,7 @@ function endedBetweenPolls(prev, next) {
 async function onSongEnded() {
   const device = state.pb?.deviceId || state.deviceId;
   state.nowEntry = null;
+  state.fallbackActive = false;
   renderNowSinger();
   // Pause right before the end so Spotify doesn't autoplay a random song over the next singer.
   try { await sp.pause(device); } catch { /* already stopped */ }
@@ -406,7 +421,7 @@ async function onSongEnded() {
   hold();
   updatePlayButton();
   if (queue.next) playNextOrIntro();
-  else if (!maybeShowIdle()) setStatus('Finito! 🎉 Cerca altre canzoni per continuare la festa.');
+  else if (!(await playFallback()) && !maybeShowIdle()) setStatus('Finito! 🎉 Cerca altre canzoni per continuare la festa.');
 }
 
 async function nextSinger() {
@@ -480,16 +495,91 @@ function hideIntermission({ keepBackground = false } = {}) {
 
 function renderNowSinger() {
   const e = state.nowEntry;
-  $('singerChip').hidden = !e;
-  $('singerChip').textContent = e ? (e.listen ? `🎧 ${e.singer}` : `🎤 ${e.singer}`) : '';
+  const fb = !e && state.fallbackActive;
+  $('singerChip').hidden = !e && !fb;
+  $('singerChip').textContent = e ? (e.listen ? `🎧 ${e.singer}` : `🎤 ${e.singer}`) : fb ? `🔀 ${state.fallbackPlaylist?.name ?? 'Playlist'}` : '';
   $('lvSinger').hidden = !e;
   $('lvSinger').textContent = e ? (e.listen ? `🎧 Scelta da ${e.singer}` : `🎤 ${e.singer}`) : '';
   if (e?.listen && e.singer === 'Solo ascolto') $('lvSinger').hidden = true;
-  $('qpNow').hidden = !e;
-  $('qpNow').textContent = e ? (e.listen ? `🎧 In ascolto: ${e.track.name}` : `🎤 Ora canta: ${e.singer} — ${e.track.name}`) : '';
+  $('qpNow').hidden = !e && !fb;
+  $('qpNow').textContent = e
+    ? (e.listen ? `🎧 In ascolto: ${e.track.name}` : `🎤 Ora canta: ${e.singer} — ${e.track.name}`)
+    : fb ? `🔀 In sottofondo dalla playlist: ${state.fallbackPlaylist?.name ?? ''}` : '';
   renderView();
   broadcastStatus();
   party.publish();
+}
+
+/* ---------- fallback playlist: random songs while the queue is empty ---------- */
+
+function loadFallbackPlaylist() {
+  try { return JSON.parse(store.get('karaoke.fallbackPlaylist')) ?? null; } catch { return null; }
+}
+
+/** Parses/validates a playlist link against Spotify, then saves it. Throws with an Italian message on failure. */
+async function setFallbackPlaylist(input) {
+  const id = sp.parsePlaylistId(input);
+  if (!id) throw new Error('Non riconosco questo link, URI o ID di playlist Spotify.');
+  let playlist;
+  try {
+    playlist = await sp.getPlaylist(id);
+  } catch (e) {
+    throw new Error(e.status === 404 ? 'Playlist non trovata.' : e.message);
+  }
+  state.fallbackPlaylist = { id, name: playlist.name };
+  state.fallbackTracks = null;
+  state.fallbackTracksFor = null;
+  state.fallbackWarned = false;
+  store.set('karaoke.fallbackPlaylist', JSON.stringify(state.fallbackPlaylist));
+}
+
+function clearFallbackPlaylist() {
+  state.fallbackPlaylist = null;
+  state.fallbackTracks = null;
+  state.fallbackTracksFor = null;
+  store.del('karaoke.fallbackPlaylist');
+}
+
+async function loadFallbackTracks() {
+  const pl = state.fallbackPlaylist;
+  if (!pl) return [];
+  if (state.fallbackTracksFor === pl.id && state.fallbackTracks) return state.fallbackTracks;
+  const tracks = await sp.getPlaylistTracks(pl.id);
+  state.fallbackTracks = tracks;
+  state.fallbackTracksFor = pl.id;
+  return tracks;
+}
+
+/** A random track, not the one that just played (unless it's the only one). */
+function pickFallbackTrack(tracks) {
+  let pick = tracks[Math.floor(Math.random() * tracks.length)];
+  while (tracks.length > 1 && trackKey(pick) === state.lastFallbackKey) pick = tracks[Math.floor(Math.random() * tracks.length)];
+  state.lastFallbackKey = trackKey(pick);
+  return pick;
+}
+
+/** Nothing queued, nothing playing: starts a random song from the fallback playlist, if one is set up. Returns whether it did. */
+async function playFallback() {
+  if (!state.fallbackPlaylist || queue.next || state.pb?.isPlaying || !$('intermission').hidden) return false;
+  let tracks;
+  try {
+    tracks = await loadFallbackTracks();
+  } catch (e) {
+    if (!state.fallbackWarned) { toast(`Playlist di riserva non disponibile (${e.message}).`); state.fallbackWarned = true; }
+    return false;
+  }
+  state.fallbackWarned = false;
+  if (!tracks.length) return false;
+  const track = pickFallbackTrack(tracks);
+  state.nowEntry = null;
+  state.fallbackActive = true;
+  renderNowSinger();
+  if (!(await playOnDevice(track))) {
+    state.fallbackActive = false;
+    renderNowSinger();
+    return false;
+  }
+  return true;
 }
 
 function renderQueue() {
@@ -521,12 +611,12 @@ function intermissionStart() {
   if (queue.next) startEntry(queue.next);
 }
 
-function intermissionSkip() {
+async function intermissionSkip() {
   queue.shift();
   if (queue.next) playNextOrIntro();
   else {
     hideIntermission();
-    if (!maybeShowIdle()) setStatus('La coda è vuota: cerca una canzone per aggiungerne una.');
+    if (!(await playFallback()) && !maybeShowIdle()) setStatus('La coda è vuota: cerca una canzone per aggiungerne una.');
   }
 }
 
@@ -904,6 +994,7 @@ function bindAppEvents() {
   $('queueClose').onclick = () => toggleQueuePanel(false);
   $('queueDetach').onclick = detachQueue;
   $('guestsBtn').onclick = () => guestsDialog.open();
+  $('fallbackBtn').onclick = () => fallbackDialog.open();
   bindQueueControls();
   $('nextBtn').onclick = nextSinger;
   $('imStart').onclick = intermissionStart;

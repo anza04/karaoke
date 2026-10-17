@@ -13,7 +13,7 @@ export class SpotifyError extends Error {
 
 async function api(path, { method = 'GET', query, body } = {}) {
   const token = await getAccessToken();
-  const url = new URL(API + path);
+  const url = new URL(/^https?:/.test(path) ? path : API + path);  // `path` may be a full "next page" URL
   for (const [k, v] of Object.entries(query || {})) if (v != null) url.searchParams.set(k, v);
 
   const res = await fetch(url, {
@@ -54,6 +54,29 @@ export const seek = (positionMs, deviceId) =>
 
 export const transferPlayback = (deviceId, play) =>
   api('/me/player', { method: 'PUT', body: { device_ids: [deviceId], play } });
+
+/** Pulls a playlist ID out of a Spotify URL, URI, or a bare ID. Returns null if it doesn't recognize it. */
+export function parsePlaylistId(input) {
+  const s = (input || '').trim();
+  return s.match(/playlist[/:]([a-zA-Z0-9]+)/)?.[1] ?? s.match(/^[a-zA-Z0-9]{22}$/)?.[0] ?? null;
+}
+
+export const getPlaylist = (id) => api(`/playlists/${encodeURIComponent(id)}`, { query: { fields: 'id,name' } });
+
+/** Every playable track in a playlist (local files and removed tracks are skipped), fetched one page at a time. */
+export async function getPlaylistTracks(id) {
+  const tracks = [];
+  let path = `/playlists/${encodeURIComponent(id)}/tracks`;
+  let query = { fields: 'items(is_local,track(uri,name,duration_ms,artists(name),album(name,images))),next', limit: 100 };
+  while (path) {
+    const page = await api(path, { query });
+    // Local files (spotify:local:...) can't be played through the Web API, so skip them.
+    for (const item of page?.items ?? []) if (item.track?.uri && !item.is_local) tracks.push(item.track);
+    path = page?.next ?? null;
+    query = undefined;  // `next` already carries its own query string
+  }
+  return tracks;
+}
 
 /** Loads the Web Playback SDK and registers this browser tab as a Spotify Connect device. */
 export function loadWebPlayer({ name, onReady, onNotReady, onState, onError }) {

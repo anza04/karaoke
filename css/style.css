@@ -731,6 +731,23 @@ body.queue-window .qp-foot { padding: 12px 0 0; }
 #guestsDialog .sd-actions { justify-content: center; }
 .qw-guests { margin-left: auto; }
 
+/* ---------- fallback playlist dialog ---------- */
+
+#fallbackDialog {
+  width: min(440px, calc(100% - 32px));
+  background: var(--panel-solid);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 24px;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.6);
+}
+#fallbackDialog::backdrop { background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(4px); }
+#fallbackDialog h2 { margin: 0 0 6px; }
+.fb-current { color: var(--muted); margin: 14px 0 10px; }
+.fb-input { width: 100%; }
+.fb-error { margin-top: 12px; text-align: left; }
+
 .im-qr {
   position: absolute;
   right: 20px;
