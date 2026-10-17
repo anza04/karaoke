@@ -50,9 +50,10 @@ export async function findLyrics({ title, artist, album, durationMs }) {
   const duration = Math.round(durationMs / 1000);
 
   // 1. Exact signature match (best timing accuracy).
-  const exact = await getJson(`${LRCLIB}/get?${new URLSearchParams({
-    track_name: title, artist_name: artist, album_name: album, duration,
-  })}`);
+  // An empty album_name makes LRCLIB's /get endpoint 503 outright, so only send it when we have one.
+  const exactParams = { track_name: title, artist_name: artist, duration };
+  if (album) exactParams.album_name = album;
+  const exact = await getJson(`${LRCLIB}/get?${new URLSearchParams(exactParams)}`);
   const exactResult = exact && toResult(exact);
   if (exactResult && exactResult.kind !== 'plain') return exactResult;
 
