@@ -789,7 +789,7 @@ async function loadLyrics(track) {
         album: track.album?.name ?? '',
         durationMs: track.duration_ms,
       });
-      lyricsCache.set(key, result);
+      if (!result?.backup) lyricsCache.set(key, result);  // a backup result: try for synced lyrics next time
     } catch (e) {
       if (state.lyricsKey === key) setStatus(`Il servizio dei testi non risponde (${e.message}).`);
       return;
@@ -1088,6 +1088,7 @@ function renderView() {
   if (state.listenMode || songListen) setStatus('');
   else if (!L) setStatus('Nessun testo trovato per questa canzone. Goditi la musica 🎧');
   else if (L.kind === 'instrumental') setStatus('Brano strumentale: niente da cantare 🎶');
+  else if (L.backup) setStatus('Il servizio dei testi sincronizzati non risponde: questo testo non scorrerà da solo.');
   else if (L.kind === 'plain') setStatus('Per questa canzone c\'è solo il testo non sincronizzato, quindi non scorrerà da solo.');
   else if (L.approximate) setStatus('Questo testo è sincronizzato su una versione leggermente diversa: usa i pulsanti di sincronia se va fuori tempo.');
   else setStatus('');

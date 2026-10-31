@@ -1,5 +1,8 @@
 // Time-synced lyrics from LRCLIB (https://lrclib.net) — free, no API key, community-sourced.
+// lyrics.ovh (plain text only) is the backup for when LRCLIB's API is down.
 const LRCLIB = 'https://lrclib.net/api';
+const LYRICS_OVH = 'https://api.lyrics.ovh/v1';
+const TIMEOUT_MS = 8000;
 
 /** Parses LRC text ("[01:23.45] line") into [{ time: ms, text }], sorted by time. */
 export function parseLrc(text) {
@@ -29,7 +32,7 @@ export function cleanTitle(title) {
 }
 
 async function getJson(url) {
-  const res = await fetch(url);
+  const res = await fetch(url, { signal: AbortSignal.timeout(TIMEOUT_MS) });
   if (res.status === 404) return null;
   if (!res.ok) throw new Error(`LRCLIB error ${res.status}`);
   return res.json();
@@ -42,18 +45,14 @@ function toResult(r, approximate = false) {
   return null;
 }
 
-/**
- * Finds lyrics for a track. Returns
- *   { kind: 'synced', lines, approximate } | { kind: 'plain', lines } | { kind: 'instrumental' } | null
- */
-export async function findLyrics({ title, artist, album, durationMs }) {
+/** Searches LRCLIB. Throws if it's unreachable and nothing usable was found. */
+async function findOnLrclib({ title, artist, album, durationMs }) {
   const duration = Math.round(durationMs / 1000);
 
-  // 1. Exact signature match (best timing accuracy).
-  // An empty album_name makes LRCLIB's /get endpoint 503 outright, so only send it when we have one.
-  const exactParams = { track_name: title, artist_name: artist, duration };
-  if (album) exactParams.album_name = album;
-  const exact = await getJson(`${LRCLIB}/get?${new URLSearchParams(exactParams)}`);
+  // 1. Exact signature match (best timing accuracy). If this fails, search can still succeed.
+  const exact = await getJson(`${LRCLIB}/get?${new URLSearchParams({
+    track_name: title, artist_name: artist, album_name: album, duration,
+  })}`).catch((e) => { console.warn('LRCLIB exact match failed', e); return null; });
   const exactResult = exact && toResult(exact);
   if (exactResult && exactResult.kind !== 'plain') return exactResult;
 
@@ -76,4 +75,28 @@ export async function findLyrics({ title, artist, album, durationMs }) {
     fallback ??= toResult(close.find((r) => r.plainLyrics) || results.find((r) => r.plainLyrics) || {});
   }
   return fallback;
+}
+
+async function findOnLyricsOvh({ title, artist }) {
+  const path = [artist, cleanTitle(title)].map(encodeURIComponent).join('/');
+  const found = await getJson(`${LYRICS_OVH}/${path}`);
+  if (!found?.lyrics?.trim()) return null;
+  return { kind: 'plain', backup: true, lines: found.lyrics.trim().split(/\r?\n/).map((text) => ({ text })) };
+}
+
+/**
+ * Finds lyrics for a track. Returns
+ *   { kind: 'synced', lines, approximate } | { kind: 'plain', lines, backup } | { kind: 'instrumental' } | null
+ * backup: LRCLIB was unavailable, so try again later instead of keeping this result.
+ * Throws only if LRCLIB is unavailable and the backup has nothing either.
+ */
+export async function findLyrics(track) {
+  try {
+    return await findOnLrclib(track);
+  } catch (e) {
+    console.warn('LRCLIB unavailable, trying lyrics.ovh', e);
+    const backup = await findOnLyricsOvh(track).catch(() => null);
+    if (backup) return backup;
+    throw e;
+  }
 }

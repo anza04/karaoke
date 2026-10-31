@@ -79,7 +79,7 @@ The Firebase values in `config.js` identify your project but aren't secret; what
 
 ## Notes & limits
 
-- Lyrics come from LRCLIB's community database. Popular songs usually have synced lyrics; others may only have plain text, or nothing.
+- Lyrics come from LRCLIB's community database. Popular songs usually have synced lyrics; others may only have plain text, or nothing. If LRCLIB is down, the app falls back to plain text from lyrics.ovh, which doesn't scroll by itself.
 - Spotify doesn't let apps remove vocals. Search for "karaoke" or "instrumental" versions if you want a backing track.
 - This is for personal use. Publishing it would need licensed lyrics (e.g. Musixmatch) and a review of Spotify's developer terms.
 
@@ -94,7 +94,7 @@ css/style.css     styling
 js/app.js         UI, playback sync, lyric highlighting
 js/auth.js        Spotify login (PKCE, no secret needed)
 js/spotify.js     Spotify Web API + Web Playback SDK
-js/lyrics.js      LRCLIB lookup + LRC parser
+js/lyrics.js      LRCLIB lookup, lyrics.ovh backup, LRC parser
 js/queue.js       singer queue, fair turn order, remembered singers (synced across windows)
 js/queue-window.js  the detached queue window
 js/ui.js          search box, "who's singing?" dialog, queue list (shared by both windows)
